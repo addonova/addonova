@@ -1,0 +1,62 @@
+{
+  "name": "addonova",
+  "version": "1.0.6",
+  "description": "Next-gen browser extension framework",
+  "type": "module",
+  "bin": {
+    "addonova": "./dist/cli/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "clean": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import ./scripts/ts-extension-loader.mjs ./node_modules/@guchho/test/dist/cli/index.js run",
+    "test:watch": "node --import ./scripts/ts-extension-loader.mjs ./node_modules/@guchho/test/dist/cli/index.js watch",
+    "phase0": "node scripts/phase0-smoke.mjs"
+  },
+  "keywords": [
+    "browser-extension",
+    "webextension",
+    "build-tool",
+    "typescript",
+    "addonova"
+  ],
+  "author": "Hemanta Gayen",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/addonova/addonova.git"
+  },
+  "dependencies": {
+    "chokidar": "^4.0.3",
+    "guchho": "1.0.9",
+    "jiti": "^2.7.0"
+  },
+  "allowScripts": {
+    "guchho@1.0.9": true
+  },
+  "devDependencies": {
+    "@guchho/test": "^0.0.2",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2"
+  }
+}
