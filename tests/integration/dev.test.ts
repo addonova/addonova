@@ -11,19 +11,19 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from '@guchho/test';
 
-import { createDevSession } from '../../src/dev/watcher.js';
+import { createDevSession } from '../../src/dev/watcher.ts';
 import type {
   DevWatcher,
   DevWatcherOptions,
-} from '../../src/dev/watcher.js';
+} from '../../src/dev/watcher.ts';
 import type {
   BundlerAdapter,
   BundlerBuildInput,
   BundlerBuildResult,
   BundlerContext,
-} from '../../src/bundler/adapter.js';
-import type { CliIo } from '../../src/cli/command.js';
-import { resolveProjectConfig } from '../../src/core/config.js';
+} from '../../src/bundler/adapter.ts';
+import type { CliIo } from '../../src/cli/command.ts';
+import { resolveProjectConfig } from '../../src/core/config.ts';
 
 const tempDirs: string[] = [];
 

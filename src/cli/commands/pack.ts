@@ -1,6 +1,6 @@
-import { packProject } from '../../core/pack.js';
-import type { CommandContext } from '../command.js';
-import { formatDiagnostic } from '../format.js';
+import { packProject } from '../../core/pack.ts';
+import type { CommandContext } from '../command.ts';
+import { formatDiagnostic } from '../format.ts';
 
 export async function packCommand(context: CommandContext): Promise<number> {
   const results = await packProject(context.config);

@@ -1,6 +1,6 @@
-import { createDevSession } from '../../dev/watcher.js';
-import { AddonovaError } from '../../core/errors.js';
-import type { CommandContext } from '../command.js';
+import { createDevSession } from '../../dev/watcher.ts';
+import { AddonovaError } from '../../core/errors.ts';
+import type { CommandContext } from '../command.ts';
 
 export async function devCommand(context: CommandContext): Promise<number> {
   if (context.config.entrypoints.length === 0) {

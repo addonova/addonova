@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { runCli } from './run.js';
+import { runCli } from './run.ts';
 
 const argv = process.argv.slice(2);
 const watchesUntilStopped = argv.includes('dev');

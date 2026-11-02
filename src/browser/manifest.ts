@@ -5,10 +5,10 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
-import type { ResolvedBrowser } from '../core/config.js';
-import type { Diagnostic } from '../core/errors.js';
-import { collectCompatibilityDiagnostics } from './compatibility.js';
-import { getBrowserTargetInfo } from './targets.js';
+import type { ResolvedBrowser } from '../core/config.ts';
+import type { Diagnostic } from '../core/errors.ts';
+import { collectCompatibilityDiagnostics } from './compatibility.ts';
+import { getBrowserTargetInfo } from './targets.ts';
 
 export interface BuildManifestOptions {
   outdir?: string;

@@ -10,24 +10,24 @@ import path from 'node:path';
 import { watch as chokidarWatch } from 'chokidar';
 import type { FSWatcher } from 'chokidar';
 
-import { guchhoAdapter } from '../bundler/guchho.js';
+import { guchhoAdapter } from '../bundler/guchho.ts';
 import type {
   BundlerAdapter,
   BundlerBuildResult,
   BundlerContext,
   BundlerTransform,
-} from '../bundler/adapter.js';
+} from '../bundler/adapter.ts';
 import {
   copyPublicDirectory,
   getOutputDirectory,
   toBundlerBuildInput,
-} from '../core/build.js';
-import { CONFIG_FILENAMES } from '../core/config.js';
-import type { ResolvedBrowser, ResolvedConfig } from '../core/config.js';
-import { AddonovaError, toDiagnostic } from '../core/errors.js';
-import { buildManifest, writeManifest } from '../browser/manifest.js';
-import type { CliIo } from '../cli/command.js';
-import { formatDiagnostic } from '../cli/format.js';
+} from '../core/build.ts';
+import { CONFIG_FILENAMES } from '../core/config.ts';
+import type { ResolvedBrowser, ResolvedConfig } from '../core/config.ts';
+import { AddonovaError, toDiagnostic } from '../core/errors.ts';
+import { buildManifest, writeManifest } from '../browser/manifest.ts';
+import type { CliIo } from '../cli/command.ts';
+import { formatDiagnostic } from '../cli/format.ts';
 
 export type ChangeKind =
   | 'config'

@@ -1,13 +1,13 @@
-import { resolveProjectConfig } from '../core/config.js';
-import type { ConfigOverrides, ResolvedConfig } from '../core/config.js';
-import { toDiagnostic } from '../core/errors.js';
-import { ADDONOVA_VERSION } from '../core/version.js';
-import { parseArgs } from './args.js';
-import type { CliOptions } from './args.js';
-import type { CliIo } from './command.js';
-import { commandHandlers } from './commands/index.js';
-import { formatDiagnostic } from './format.js';
-import { renderHelp } from './help.js';
+import { resolveProjectConfig } from '../core/config.ts';
+import type { ConfigOverrides, ResolvedConfig } from '../core/config.ts';
+import { toDiagnostic } from '../core/errors.ts';
+import { ADDONOVA_VERSION } from '../core/version.ts';
+import { parseArgs } from './args.ts';
+import type { CliOptions } from './args.ts';
+import type { CliIo } from './command.ts';
+import { commandHandlers } from './commands/index.ts';
+import { formatDiagnostic } from './format.ts';
+import { renderHelp } from './help.ts';
 
 export interface RunCliOptions {
   signal?: AbortSignal;

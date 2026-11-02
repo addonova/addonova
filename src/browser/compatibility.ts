@@ -1,6 +1,6 @@
-import type { ResolvedBrowser } from '../core/config.js';
-import type { Diagnostic } from '../core/errors.js';
-import type { BrowserTargetInfo } from './targets.js';
+import type { ResolvedBrowser } from '../core/config.ts';
+import type { Diagnostic } from '../core/errors.ts';
+import type { BrowserTargetInfo } from './targets.ts';
 
 export function collectCompatibilityDiagnostics(
   manifest: Readonly<Record<string, unknown>>,

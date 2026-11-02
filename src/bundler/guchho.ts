@@ -19,8 +19,8 @@ import type {
   Plugin,
 } from 'guchho';
 
-import { AddonovaError } from '../core/errors.js';
-import type { Diagnostic } from '../core/errors.js';
+import { AddonovaError } from '../core/errors.ts';
+import type { Diagnostic } from '../core/errors.ts';
 import type {
   BundlerAdapter,
   BundlerBuildInput,
@@ -28,7 +28,7 @@ import type {
   BundlerContext,
   BundlerEntrypoint,
   BundlerTransform,
-} from './adapter.js';
+} from './adapter.ts';
 
 const DEFAULT_EXTERNAL = ['@addonova/browser'] as const;
 

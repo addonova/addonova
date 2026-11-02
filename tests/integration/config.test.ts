@@ -12,8 +12,8 @@ import { afterEach, describe, expect, it } from '@guchho/test';
 import {
   findConfigFile,
   resolveProjectConfig,
-} from '../../src/core/config.js';
-import { AddonovaError } from '../../src/core/errors.js';
+} from '../../src/core/config.ts';
+import { AddonovaError } from '../../src/core/errors.ts';
 
 const tempDirs: string[] = [];
 

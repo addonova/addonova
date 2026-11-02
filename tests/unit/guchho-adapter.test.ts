@@ -3,8 +3,8 @@ import { describe, expect, it } from '@guchho/test';
 import {
   guchhoAdapter,
   toGuchhoOptions,
-} from '../../src/bundler/guchho.js';
-import { AddonovaError } from '../../src/core/errors.js';
+} from '../../src/bundler/guchho.ts';
+import { AddonovaError } from '../../src/core/errors.ts';
 
 const baseInput = {
   root: 'C:\\project',

@@ -1,5 +1,5 @@
-import type { ResolvedConfig } from '../core/config.js';
-import type { CliOptions } from './args.js';
+import type { ResolvedConfig } from '../core/config.ts';
+import type { CliOptions } from './args.ts';
 
 export interface CliWriter {
   write(chunk: string): unknown;

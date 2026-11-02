@@ -10,8 +10,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from '@guchho/test';
 
-import { runCli } from '../../src/cli/run.js';
-import type { CliIo } from '../../src/cli/command.js';
+import { runCli } from '../../src/cli/run.ts';
+import type { CliIo } from '../../src/cli/command.ts';
 
 const tempDirs: string[] = [];
 

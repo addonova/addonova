@@ -1,7 +1,7 @@
-import { buildProject } from '../../core/build.js';
-import { AddonovaError } from '../../core/errors.js';
-import type { CommandContext } from '../command.js';
-import { formatDiagnostic } from '../format.js';
+import { buildProject } from '../../core/build.ts';
+import { AddonovaError } from '../../core/errors.ts';
+import type { CommandContext } from '../command.ts';
+import { formatDiagnostic } from '../format.ts';
 
 export async function buildCommand(context: CommandContext): Promise<number> {
   if (context.config.entrypoints.length === 0) {

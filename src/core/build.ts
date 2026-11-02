@@ -12,18 +12,18 @@ import type {
   BundlerBuildResult,
   BundlerEntrypoint,
   BundlerTransform,
-} from '../bundler/adapter.js';
-import { guchhoAdapter } from '../bundler/guchho.js';
+} from '../bundler/adapter.ts';
+import { guchhoAdapter } from '../bundler/guchho.ts';
 import {
   buildManifest,
   writeManifest,
-} from '../browser/manifest.js';
-import type { Diagnostic } from './errors.js';
+} from '../browser/manifest.ts';
+import type { Diagnostic } from './errors.ts';
 import type {
   ResolvedBrowser,
   ResolvedConfig,
   ResolvedEntrypoint,
-} from './config.js';
+} from './config.ts';
 
 export interface ProjectBuildResult {
   browser: ResolvedBrowser;

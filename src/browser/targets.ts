@@ -1,8 +1,8 @@
 import {
   DEFAULT_MANIFEST_VERSION,
   isManifestVersion,
-} from '../core/types.js';
-import type { BrowserTarget, ManifestVersion } from '../core/types.js';
+} from '../core/types.ts';
+import type { BrowserTarget, ManifestVersion } from '../core/types.ts';
 
 export interface BrowserTargetInfo {
   readonly target: BrowserTarget;

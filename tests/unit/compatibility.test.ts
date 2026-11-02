@@ -1,13 +1,13 @@
 import { describe, expect, it } from '@guchho/test';
 
-import { buildManifest } from '../../src/browser/manifest.js';
+import { buildManifest } from '../../src/browser/manifest.ts';
 import {
   BROWSER_TARGET_INFO,
   getBrowserTargetInfo,
   supportsManifestVersion,
-} from '../../src/browser/targets.js';
-import type { ResolvedBrowser } from '../../src/core/config.js';
-import { BROWSER_TARGETS } from '../../src/core/types.js';
+} from '../../src/browser/targets.ts';
+import type { ResolvedBrowser } from '../../src/core/config.ts';
+import { BROWSER_TARGETS } from '../../src/core/types.ts';
 
 describe('browser target model', () => {
   it('exposes a default and supported manifest versions for every target', () => {

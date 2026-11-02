@@ -10,8 +10,8 @@ import path from 'node:path';
 import type { PackOptions } from 'guchho';
 import { afterEach, describe, expect, it } from '@guchho/test';
 
-import { resolveProjectConfig } from '../../src/core/config.js';
-import { packProject } from '../../src/core/pack.js';
+import { resolveProjectConfig } from '../../src/core/config.ts';
+import { packProject } from '../../src/core/pack.ts';
 
 const tempDirs: string[] = [];
 

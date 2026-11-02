@@ -3,18 +3,18 @@ export {
   createDiagnostic,
   isAddonovaError,
   toDiagnostic,
-} from './core/errors.js';
+} from './core/errors.ts';
 export type {
   Diagnostic,
   DiagnosticLocation,
   DiagnosticSeverity,
-} from './core/errors.js';
+} from './core/errors.ts';
 export {
   ARCHIVE_FORMATS,
   BROWSER_TARGETS,
   DEFAULT_BROWSER,
   DEFAULT_MANIFEST_VERSION,
-} from './core/types.js';
+} from './core/types.ts';
 export type {
   ArchiveFormat,
   BuildMode,
@@ -22,8 +22,8 @@ export type {
   EntrypointKind,
   ManifestVersion,
   SourcemapOption,
-} from './core/types.js';
-export { defineConfig } from './core/config.js';
+} from './core/types.ts';
+export { defineConfig } from './core/config.ts';
 export type {
   AddonovaPackConfig,
   AddonovaUserConfig,
@@ -31,52 +31,52 @@ export type {
   ResolvedConfig,
   ResolvedEntrypoint,
   ResolvedPackConfig,
-} from './core/config.js';
+} from './core/config.ts';
 export {
   buildProject,
   copyPublicDirectory,
   getEntrypointOutputName,
   getOutputDirectory,
   toBundlerEntrypoints,
-} from './core/build.js';
+} from './core/build.ts';
 export type {
   BuildProjectOptions,
   ProjectBuildResult,
   PublicCopyResult,
-} from './core/build.js';
+} from './core/build.ts';
 export {
   assertSafeOutputDirectory,
   cleanProject,
-} from './core/clean.js';
+} from './core/clean.ts';
 export type {
   CleanProjectOptions,
   CleanProjectResult,
-} from './core/clean.js';
+} from './core/clean.ts';
 export {
   getArchivePath,
   packProject,
-} from './core/pack.js';
+} from './core/pack.ts';
 export type {
   PackProjectOptions,
   PackRunner,
   PackTargetResult,
-} from './core/pack.js';
+} from './core/pack.ts';
 export {
   buildManifest,
   writeManifest,
-} from './browser/manifest.js';
+} from './browser/manifest.ts';
 export type {
   BuildManifestOptions,
   BuiltManifest,
-} from './browser/manifest.js';
+} from './browser/manifest.ts';
 export {
   BROWSER_TARGET_INFO,
   getBrowserTargetInfo,
   supportsManifestVersion,
-} from './browser/targets.js';
-export type { BrowserTargetInfo } from './browser/targets.js';
+} from './browser/targets.ts';
+export type { BrowserTargetInfo } from './browser/targets.ts';
 
-export { guchhoAdapter } from './bundler/guchho.js';
+export { guchhoAdapter } from './bundler/guchho.ts';
 export type {
   BundlerAdapter,
   BundlerBuildInput,
@@ -87,16 +87,16 @@ export type {
   BundlerInput,
   BundlerOutput,
   BundlerTransform,
-} from './bundler/adapter.js';
+} from './bundler/adapter.ts';
 export {
   DevSession,
   classifyChange,
   createDevSession,
-} from './dev/watcher.js';
+} from './dev/watcher.ts';
 export type {
   ChangeKind,
   DevSessionOptions,
   DevWatcher,
   DevWatcherFactory,
   DevWatcherOptions,
-} from './dev/watcher.js';
+} from './dev/watcher.ts';

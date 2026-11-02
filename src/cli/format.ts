@@ -1,4 +1,4 @@
-import type { Diagnostic } from '../core/errors.js';
+import type { Diagnostic } from '../core/errors.ts';
 
 export function formatDiagnostic(diagnostic: Diagnostic): string {
   const lines = [

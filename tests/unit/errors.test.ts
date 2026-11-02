@@ -5,7 +5,7 @@ import {
   createDiagnostic,
   isAddonovaError,
   toDiagnostic,
-} from '../../src/core/errors.js';
+} from '../../src/core/errors.ts';
 
 describe('diagnostics', () => {
   it('wraps a diagnostic in an error', () => {

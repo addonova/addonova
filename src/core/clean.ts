@@ -1,10 +1,10 @@
 import { existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
-import { guchhoAdapter } from '../bundler/guchho.js';
-import type { BundlerAdapter } from '../bundler/adapter.js';
-import type { ResolvedConfig } from './config.js';
-import { AddonovaError } from './errors.js';
+import { guchhoAdapter } from '../bundler/guchho.ts';
+import type { BundlerAdapter } from '../bundler/adapter.ts';
+import type { ResolvedConfig } from './config.ts';
+import { AddonovaError } from './errors.ts';
 
 export interface CleanProjectOptions {
   adapter?: BundlerAdapter;

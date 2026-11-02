@@ -1,5 +1,5 @@
-import { cleanProject } from '../../core/clean.js';
-import type { CommandContext } from '../command.js';
+import { cleanProject } from '../../core/clean.ts';
+import type { CommandContext } from '../command.ts';
 
 export async function cleanCommand(context: CommandContext): Promise<number> {
   const result = await cleanProject(context.config);

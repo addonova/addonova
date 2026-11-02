@@ -13,12 +13,12 @@ import { afterEach, describe, expect, it } from '@guchho/test';
 import {
   buildManifest,
   writeManifest,
-} from '../../src/browser/manifest.js';
+} from '../../src/browser/manifest.ts';
 import {
   getBrowserTargetInfo,
   supportsManifestVersion,
-} from '../../src/browser/targets.js';
-import type { ResolvedBrowser } from '../../src/core/config.js';
+} from '../../src/browser/targets.ts';
+import type { ResolvedBrowser } from '../../src/core/config.ts';
 
 const tempDirs: string[] = [];
 

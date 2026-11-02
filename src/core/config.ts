@@ -6,8 +6,8 @@ import { createJiti } from 'jiti';
 import {
   getBrowserTargetInfo,
   supportsManifestVersion,
-} from '../browser/targets.js';
-import { AddonovaError } from './errors.js';
+} from '../browser/targets.ts';
+import { AddonovaError } from './errors.ts';
 import {
   BROWSER_TARGETS,
   DEFAULT_BROWSER,
@@ -17,7 +17,7 @@ import {
   isBuildMode,
   isManifestVersion,
   isSourcemapOption,
-} from './types.js';
+} from './types.ts';
 import type {
   ArchiveFormat,
   BuildMode,
@@ -25,7 +25,7 @@ import type {
   EntrypointKind,
   ManifestVersion,
   SourcemapOption,
-} from './types.js';
+} from './types.ts';
 
 export const CONFIG_FILENAMES = [
   'addonova.config.ts',

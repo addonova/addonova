@@ -2,8 +2,8 @@ import path from 'node:path';
 
 import { describe, expect, it } from '@guchho/test';
 
-import { classifyChange } from '../../src/dev/watcher.js';
-import type { ResolvedConfig } from '../../src/core/config.js';
+import { classifyChange } from '../../src/dev/watcher.ts';
+import type { ResolvedConfig } from '../../src/core/config.ts';
 
 const root = path.resolve('C:\\project');
 

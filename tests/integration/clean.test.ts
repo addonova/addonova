@@ -10,9 +10,9 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from '@guchho/test';
 
-import { buildProject } from '../../src/core/build.js';
-import { cleanProject } from '../../src/core/clean.js';
-import { resolveProjectConfig } from '../../src/core/config.js';
+import { buildProject } from '../../src/core/build.ts';
+import { cleanProject } from '../../src/core/clean.ts';
+import { resolveProjectConfig } from '../../src/core/config.ts';
 
 const tempDirs: string[] = [];
 

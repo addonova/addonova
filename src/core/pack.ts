@@ -4,10 +4,10 @@ import path from 'node:path';
 import { pack as guchhoPack } from 'guchho';
 import type { PackOptions, PackResult as GuchhoPackResult } from 'guchho';
 
-import type { ResolvedBrowser, ResolvedConfig } from './config.js';
-import { getOutputDirectory } from './build.js';
-import { AddonovaError } from './errors.js';
-import type { ArchiveFormat } from './types.js';
+import type { ResolvedBrowser, ResolvedConfig } from './config.ts';
+import { getOutputDirectory } from './build.ts';
+import { AddonovaError } from './errors.ts';
+import type { ArchiveFormat } from './types.ts';
 
 const DETERMINISTIC_DATE = new Date('1980-01-01T00:00:00.000Z');
 

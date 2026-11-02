@@ -15,11 +15,11 @@ import {
   getEntrypointOutputName,
   getOutputDirectory,
   toBundlerEntrypoints,
-} from '../../src/core/build.js';
+} from '../../src/core/build.ts';
 import type {
   ResolvedBrowser,
   ResolvedEntrypoint,
-} from '../../src/core/config.js';
+} from '../../src/core/config.ts';
 
 const tempDirs: string[] = [];
 

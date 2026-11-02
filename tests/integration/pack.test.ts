@@ -11,9 +11,9 @@ import path from 'node:path';
 import { unpack } from 'guchho';
 import { afterEach, describe, expect, it } from '@guchho/test';
 
-import { buildProject } from '../../src/core/build.js';
-import { resolveProjectConfig } from '../../src/core/config.js';
-import { getArchivePath, packProject } from '../../src/core/pack.js';
+import { buildProject } from '../../src/core/build.ts';
+import { resolveProjectConfig } from '../../src/core/config.ts';
+import { getArchivePath, packProject } from '../../src/core/pack.ts';
 
 const tempDirs: string[] = [];
 

@@ -1,6 +1,6 @@
-import { buildManifest } from '../../browser/manifest.js';
-import type { CommandContext } from '../command.js';
-import { formatDiagnostic } from '../format.js';
+import { buildManifest } from '../../browser/manifest.ts';
+import type { CommandContext } from '../command.ts';
+import { formatDiagnostic } from '../format.ts';
 
 export function validateCommand(context: CommandContext): number {
   let failed = false;

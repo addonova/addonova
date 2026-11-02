@@ -1,5 +1,5 @@
-import type { Diagnostic } from '../core/errors.js';
-import type { BuildMode, EntrypointKind, SourcemapOption } from '../core/types.js';
+import type { Diagnostic } from '../core/errors.ts';
+import type { BuildMode, EntrypointKind, SourcemapOption } from '../core/types.ts';
 
 export type BundlerFormat = 'iife' | 'esm';
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from '@guchho/test';
 
-import { parseArgs } from '../../src/cli/args.js';
-import { AddonovaError } from '../../src/core/errors.js';
+import { parseArgs } from '../../src/cli/args.ts';
+import { AddonovaError } from '../../src/core/errors.ts';
 
 describe('CLI argument parsing', () => {
   it('parses commands, targets, and build options', () => {

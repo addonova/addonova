@@ -1,17 +1,17 @@
-import { AddonovaError } from '../core/errors.js';
+import { AddonovaError } from '../core/errors.ts';
 import {
   BROWSER_TARGETS,
   isBrowserTarget,
   isBuildMode,
   isManifestVersion,
   isSourcemapOption,
-} from '../core/types.js';
+} from '../core/types.ts';
 import type {
   BuildMode,
   BrowserTarget,
   ManifestVersion,
   SourcemapOption,
-} from '../core/types.js';
+} from '../core/types.ts';
 
 export const COMMANDS = ['build', 'dev', 'clean', 'info', 'validate', 'pack'] as const;
 

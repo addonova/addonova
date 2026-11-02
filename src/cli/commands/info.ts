@@ -1,7 +1,7 @@
-import { ADDONOVA_VERSION } from '../../core/version.js';
-import { BROWSER_TARGETS } from '../../core/types.js';
-import type { SourcemapOption } from '../../core/types.js';
-import type { CommandContext } from '../command.js';
+import { ADDONOVA_VERSION } from '../../core/version.ts';
+import { BROWSER_TARGETS } from '../../core/types.ts';
+import type { SourcemapOption } from '../../core/types.ts';
+import type { CommandContext } from '../command.ts';
 
 export function infoCommand(context: CommandContext): number {
   const { config } = context;

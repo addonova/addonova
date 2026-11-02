@@ -6,5 +6,5 @@ export type {
   BundlerFormat,
   BundlerInput,
   BundlerOutput,
-} from './adapter.js';
-export { guchhoAdapter } from './guchho.js';
+} from './adapter.ts';
+export { guchhoAdapter } from './guchho.ts';
