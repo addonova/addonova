@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Planing
+demo/
+PLAN.md
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test and TypeScript output
+coverage/
+.vitest/
+*.tsbuildinfo
+
+# Guchho 1.0.9 lists unpublished platform optional dependencies,
+# so npm ci rejects the generated lockfile. Revisit when upstream is fixed.
+package-lock.json
+
+# Stray files
+nul
+
