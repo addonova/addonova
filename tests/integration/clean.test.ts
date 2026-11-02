@@ -10,6 +10,11 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from '@guchho/test';
 
+import type {
+  BundlerAdapter,
+  BundlerBuildResult,
+  BundlerContext,
+} from '../../src/bundler/adapter.ts';
 import { buildProject } from '../../src/core/build.ts';
 import { cleanProject } from '../../src/core/clean.ts';
 import { resolveProjectConfig } from '../../src/core/config.ts';
@@ -98,7 +103,54 @@ describe('project clean', () => {
     );
     expect(existsSync(path.join(root, 'build-src/background.ts'))).toBe(true);
   });
+
+  it('disposes the bundler service before deleting output', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'Clean Dispose', version: '1.0.0' },
+  minify: false,
+};
+`,
+      'src/background.ts': 'console.log("clean-dispose");\n',
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+    await buildProject(config);
+
+    expect(existsSync(path.join(root, 'dist/chrome/manifest.json'))).toBe(true);
+
+    const manifestPath = path.join(root, 'dist/chrome/manifest.json');
+    const adapter = new TrackingAdapter(manifestPath);
+    const result = await cleanProject(config, { adapter });
+
+    expect(adapter.disposeCalls).toBe(1);
+    expect(adapter.outputPresentDuringDispose).toBe(true);
+    expect(result.removed).toBe(true);
+    expect(existsSync(path.join(root, 'dist'))).toBe(false);
+  });
 });
+
+class TrackingAdapter implements BundlerAdapter {
+  readonly name = 'tracking';
+  readonly version = '0.0.0';
+  disposeCalls = 0;
+  outputPresentDuringDispose = false;
+
+  constructor(private readonly outputPath: string) {}
+
+  async build(): Promise<BundlerBuildResult> {
+    throw new Error('not implemented');
+  }
+
+  async createContext(): Promise<BundlerContext> {
+    throw new Error('not implemented');
+  }
+
+  async dispose(): Promise<void> {
+    this.disposeCalls += 1;
+    this.outputPresentDuringDispose = existsSync(this.outputPath);
+  }
+}
 
 function createProject(files: Readonly<Record<string, string>>): string {
   const root = mkdtempSync(path.join(tmpdir(), 'addonova-clean-'));
