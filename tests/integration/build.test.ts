@@ -319,6 +319,86 @@ console.log(message);
     expect(css.trim()).toContain('body{');
     expect(css.trim()).not.toContain('\n');
   }, 60_000);
+
+  it('supports repeated builds across Guchho service restarts', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'Repeated Build Demo', version: '1.0.0' },
+  minify: false,
+};
+`,
+      'src/background.ts': 'console.log("repeat-v1");\n',
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+    const firstReports = await buildProject(config);
+    const first = firstReports[0];
+
+    expect(first).toBeDefined();
+
+    if (first === undefined) {
+      throw new Error('Expected the first repeated build report.');
+    }
+
+    const backgroundPath = path.join(first.outdir, 'background.js');
+
+    expect(first.result.success).toBe(true);
+    expect(readFileSync(backgroundPath, 'utf8')).toContain('repeat-v1');
+
+    writeFileSync(
+      path.join(root, 'src/background.ts'),
+      'console.log("repeat-v2");\n',
+      'utf8',
+    );
+
+    const secondReports = await buildProject(config);
+    const second = secondReports[0];
+
+    expect(second).toBeDefined();
+
+    if (second === undefined) {
+      throw new Error('Expected the second repeated build report.');
+    }
+
+    expect(second.result.success).toBe(true);
+    expect(second.result.errors).toEqual([]);
+    expect(second.outdir).toBe(first.outdir);
+    expect(existsSync(path.join(second.outdir, 'manifest.json'))).toBe(true);
+    expect(readFileSync(backgroundPath, 'utf8')).toContain('repeat-v2');
+    expect(readFileSync(backgroundPath, 'utf8')).not.toContain('repeat-v1');
+  }, 60_000);
+
+  it('tree-shakes unused exports in production without minification', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'Tree Shaking Demo', version: '1.0.0' },
+  minify: false,
+};
+`,
+      'src/util.ts': `export function used() { return 'tree-used'; }\nexport function unused() { return 'tree-unused'; }\n`,
+      'src/background.ts': `import { used } from './util';\nconsole.log(used());\n`,
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+    const reports = await buildProject(config);
+    const report = reports[0];
+
+    expect(report).toBeDefined();
+
+    if (report === undefined) {
+      throw new Error('Expected one production build report.');
+    }
+
+    const background = readFileSync(
+      path.join(report.outdir, 'background.js'),
+      'utf8',
+    );
+
+    expect(config.mode).toBe('production');
+    expect(report.result.success).toBe(true);
+    expect(background).toContain('tree-used');
+    expect(background).not.toContain('tree-unused');
+  }, 30_000);
 });
 
 function hasAsset(outputs: readonly string[], extension: string): boolean {
