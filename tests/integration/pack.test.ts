@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -138,6 +139,47 @@ describe('project pack', () => {
       path.join(root, 'dist', 'addonova-chrome-mv3-2.0.0.tar.gz'),
     );
   });
+
+  it('produces byte-identical archives for deterministic packs', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'Deterministic Demo', version: '1.0.0' },
+  minify: false,
+  pack: { deterministic: true },
+};
+`,
+      'src/background.ts': 'console.log("deterministic");\n',
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+
+    await buildProject(config);
+
+    const [first] = await packProject(config);
+
+    expect(first).toBeDefined();
+
+    if (first === undefined) {
+      throw new Error('Expected one pack result.');
+    }
+
+    const firstBytes = readFileSync(first.archivePath);
+
+    rmSync(first.archivePath);
+
+    const [second] = await packProject(config);
+
+    expect(second).toBeDefined();
+
+    if (second === undefined) {
+      throw new Error('Expected a second pack result.');
+    }
+
+    const secondBytes = readFileSync(second.archivePath);
+
+    expect(first.archivePath).toBe(second.archivePath);
+    expect(firstBytes.equals(secondBytes)).toBe(true);
+  }, 60_000);
 });
 
 function createProject(files: Readonly<Record<string, string>>): string {
