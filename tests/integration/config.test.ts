@@ -172,6 +172,29 @@ describe('configuration resolution', () => {
     ]);
   });
 
+  it('normalizes native Windows separators in entrypoint paths', async () => {
+    if (process.platform !== 'win32') {
+      return;
+    }
+
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src\\\\background.ts' },
+};
+`,
+      'src/background.ts': 'export {};\n',
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+
+    expect(config.entrypoints).toEqual([
+      {
+        name: 'background',
+        input: path.join(root, 'src/background.ts'),
+        kind: 'script',
+      },
+    ]);
+  });
+
   it('rejects an explicit config path that does not exist', () => {
     const root = createProject({});
 
