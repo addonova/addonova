@@ -29,6 +29,7 @@ const config: ResolvedConfig = {
   mode: 'development',
   minify: false,
   sourcemap: true,
+  plugins: [],
   pack: {
     outFile: null,
     format: 'zip',
