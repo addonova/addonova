@@ -1,0 +1,11 @@
+body {
+  margin: 0;
+  background: #101418;
+  color: #f5f7fa;
+  font-family: system-ui, sans-serif;
+}
+
+#logo {
+  width: 64px;
+  height: 64px;
+}
