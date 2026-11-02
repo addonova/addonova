@@ -176,6 +176,96 @@ describe('CLI runner', () => {
     expect(existsSync(archivePath)).toBe(true);
   }, 30_000);
 
+  it('reports build failures with an actionable diagnostic and exit code 1', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'CLI Failed Build', version: '1.0.0' },
+};
+`,
+      'src/background.ts': 'const = ;\n',
+    });
+    const { io, stdout, stderr } = createIo(root);
+
+    const exitCode = await runCli(['build'], io);
+
+    expect(exitCode).toBe(1);
+    expect(stdout()).toContain('Build failed chrome MV3');
+    expect(stderr()).toContain('ADDONOVA_BUNDLER_ERROR');
+  }, 30_000);
+
+  it('reports missing pack output with a suggestion and exit code 1', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'CLI Missing Pack', version: '1.0.0' },
+};
+`,
+      'src/background.ts': 'export {};\n',
+    });
+    const { io, stderr } = createIo(root);
+
+    const exitCode = await runCli(['pack'], io);
+
+    expect(exitCode).toBe(1);
+    expect(stderr()).toContain('ADDONOVA_PACK_OUTPUT_MISSING');
+    expect(stderr()).toContain('suggestion:');
+    expect(stderr()).toContain('addonova build --browser chrome');
+  });
+
+  it('refuses unsafe clean directories with exit code 1', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  outdir: '.',
+};
+`,
+      'src/background.ts': 'export {};\n',
+    });
+    const { io, stderr } = createIo(root);
+
+    const exitCode = await runCli(['clean'], io);
+
+    expect(exitCode).toBe(1);
+    expect(stderr()).toContain('ADDONOVA_CLEAN_UNSAFE_OUTDIR');
+    expect(stderr()).toContain('suggestion:');
+    expect(existsSync(path.join(root, 'src/background.ts'))).toBe(true);
+  });
+
+  it('builds and cleans projects in paths containing spaces', async () => {
+    const base = mkdtempSync(path.join(tmpdir(), 'addonova-cli-spaces-'));
+    tempDirs.push(base);
+
+    const root = path.join(base, 'project with spaces');
+    mkdirSync(path.join(root, 'src'), { recursive: true });
+    writeFileSync(
+      path.join(root, 'addonova.config.ts'),
+      `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'CLI Spaces', version: '1.0.0' },
+  minify: false,
+};
+`,
+      'utf8',
+    );
+    writeFileSync(
+      path.join(root, 'src/background.ts'),
+      'console.log("spaces");\n',
+      'utf8',
+    );
+
+    const { io, stdout, stderr } = createIo(root);
+    const exitCode = await runCli(['build'], io);
+    const cleanExitCode = await runCli(['clean'], io);
+
+    expect(exitCode).toBe(0);
+    expect(cleanExitCode).toBe(0);
+    expect(stderr()).toBe('');
+    expect(stdout()).toContain('Built chrome MV3');
+    expect(existsSync(path.join(root, 'dist'))).toBe(false);
+    expect(existsSync(path.join(root, 'src/background.ts'))).toBe(true);
+  }, 30_000);
+
   it('reports dev without entrypoints separately from unimplemented builds', async () => {
     const { io, stderr } = createIo(createProject({}));
 
