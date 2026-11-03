@@ -18,6 +18,10 @@ import {
   buildManifest,
   writeManifest,
 } from '../browser/manifest.ts';
+import {
+  createPluginManager,
+  mergePluginDiagnostics,
+} from '../plugins/manager.ts';
 import type { Diagnostic } from './errors.ts';
 import type {
   ResolvedBrowser,
@@ -46,17 +50,29 @@ export async function buildProject(
   options: BuildProjectOptions = {},
 ): Promise<readonly ProjectBuildResult[]> {
   const adapter = options.adapter ?? guchhoAdapter;
+  const pluginManager = createPluginManager(config.plugins);
+  const transforms = [
+    ...pluginManager.transforms,
+    ...(options.transforms ?? []),
+  ];
   const reports: ProjectBuildResult[] = [];
+  let started = false;
 
   try {
+    await pluginManager.buildStart();
+    started = true;
+
     for (const browser of config.browsers) {
       const outdir = getOutputDirectory(
         config.outdir,
         browser,
         config.browsers,
       );
-      const result = await adapter.build(
-        toBundlerBuildInput(config, browser, outdir, options.transforms),
+      const result = mergePluginDiagnostics(
+        await adapter.build(
+          toBundlerBuildInput(config, browser, outdir, transforms),
+        ),
+        pluginManager.takeDiagnostics(),
       );
       const publicCopy = result.success
         ? copyPublicDirectory(config.publicDir, outdir)
@@ -85,8 +101,14 @@ export async function buildProject(
 
     return reports;
   } finally {
-    if (options.dispose ?? true) {
-      await adapter.dispose?.();
+    try {
+      if (started) {
+        await pluginManager.buildEnd();
+      }
+    } finally {
+      if (options.dispose ?? true) {
+        await adapter.dispose?.();
+      }
     }
   }
 }
