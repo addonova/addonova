@@ -7,6 +7,8 @@ import {
   getBrowserTargetInfo,
   supportsManifestVersion,
 } from '../browser/targets.ts';
+import { validatePlugins } from '../plugins/manager.ts';
+import type { AddonovaPlugin } from '../plugins/types.ts';
 import { AddonovaError } from './errors.ts';
 import {
   BROWSER_TARGETS,
@@ -60,7 +62,7 @@ export interface AddonovaUserConfig {
   minify?: boolean;
   sourcemap?: SourcemapOption;
   mode?: BuildMode;
-  plugins?: readonly unknown[];
+  plugins?: readonly AddonovaPlugin[];
   pack?: AddonovaPackConfig;
 }
 
@@ -95,6 +97,7 @@ export interface ResolvedConfig {
   mode: BuildMode;
   minify: boolean;
   sourcemap: SourcemapOption;
+  plugins: readonly AddonovaPlugin[];
   pack: ResolvedPackConfig;
 }
 
@@ -261,6 +264,10 @@ export function normalizeConfig(
       overrides.sourcemap ??
       userConfig.sourcemap ??
       (mode === 'development' ? true : false),
+    plugins: validatePlugins(
+      userConfig.plugins,
+      configPath === null ? undefined : { file: configPath },
+    ),
     pack: normalizePack(userConfig.pack, root, configPath),
   };
 }
@@ -307,15 +314,6 @@ function validateConfigValues(config: AddonovaUserConfig, configPath: string | n
       'ADDONOVA_CONFIG_INVALID',
       'Config "mode" must be "development" or "production".',
       'Use one of the supported build modes.',
-      configPath,
-    );
-  }
-
-  if (config.plugins !== undefined && !Array.isArray(config.plugins)) {
-    throw configError(
-      'ADDONOVA_CONFIG_INVALID',
-      'Config "plugins" must be an array.',
-      'Pass an array of plugin objects.',
       configPath,
     );
   }
