@@ -26,6 +26,11 @@ import { CONFIG_FILENAMES } from '../core/config.ts';
 import type { ResolvedBrowser, ResolvedConfig } from '../core/config.ts';
 import { AddonovaError, toDiagnostic } from '../core/errors.ts';
 import { buildManifest, writeManifest } from '../browser/manifest.ts';
+import {
+  createPluginManager,
+  mergePluginDiagnostics,
+} from '../plugins/manager.ts';
+import type { PluginManager } from '../plugins/manager.ts';
 import type { CliIo } from '../cli/command.ts';
 import { formatDiagnostic } from '../cli/format.ts';
 
@@ -173,7 +178,8 @@ export class DevSession {
   private config: ResolvedConfig;
   private readonly io: CliIo;
   private readonly adapter: BundlerAdapter;
-  private readonly transforms: readonly BundlerTransform[] | undefined;
+  private readonly baseTransforms: readonly BundlerTransform[] | undefined;
+  private pluginManager: PluginManager;
   private readonly debounceMs: number;
   private readonly watcherFactory: DevWatcherFactory;
   private readonly reloadConfig: () => Promise<ResolvedConfig>;
@@ -191,7 +197,8 @@ export class DevSession {
     this.config = options.config;
     this.io = options.io;
     this.adapter = options.adapter ?? guchhoAdapter;
-    this.transforms = options.transforms;
+    this.baseTransforms = options.transforms;
+    this.pluginManager = createPluginManager(options.config.plugins);
     this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
     this.watcherFactory = options.watcherFactory ?? createChokidarWatcher;
     this.reloadConfig =
@@ -235,8 +242,13 @@ export class DevSession {
       }
     });
 
-    this.targetSet = await this.createTargetSet(this.config);
-    await this.rebuildTargets('initial');
+    await this.runPluginHooks(async () => {
+      this.targetSet = await this.createTargetSet(
+        this.config,
+        this.getTransforms(),
+      );
+      await this.rebuildTargets('initial');
+    });
 
     this.io.stdout.write(
       `Watching ${this.config.root} for changes. Press Ctrl+C to stop.\n`,
@@ -355,7 +367,11 @@ export class DevSession {
         }
       }
 
-      await this.rebuildTargets('change');
+      try {
+        await this.runPluginHooks(() => this.rebuildTargets('change'));
+      } catch (error) {
+        this.printError(error);
+      }
     } finally {
       this.rebuilding = false;
 
@@ -378,10 +394,15 @@ export class DevSession {
       return false;
     }
 
+    let nextManager: PluginManager;
     let nextSet: TargetSet;
 
     try {
-      nextSet = await this.createTargetSet(nextConfig);
+      nextManager = createPluginManager(nextConfig.plugins);
+      nextSet = await this.createTargetSet(nextConfig, [
+        ...nextManager.transforms,
+        ...(this.baseTransforms ?? []),
+      ]);
     } catch (error) {
       this.printError(error);
       return false;
@@ -390,6 +411,7 @@ export class DevSession {
     const previousSet = this.targetSet;
 
     this.config = nextConfig;
+    this.pluginManager = nextManager;
     this.targetSet = nextSet;
 
     if (previousSet !== null) {
@@ -401,7 +423,24 @@ export class DevSession {
     return true;
   }
 
-  private async createTargetSet(config: ResolvedConfig): Promise<TargetSet> {
+  private getTransforms(): readonly BundlerTransform[] {
+    return [...this.pluginManager.transforms, ...(this.baseTransforms ?? [])];
+  }
+
+  private async runPluginHooks(run: () => Promise<void>): Promise<void> {
+    await this.pluginManager.buildStart();
+
+    try {
+      await run();
+    } finally {
+      await this.pluginManager.buildEnd();
+    }
+  }
+
+  private async createTargetSet(
+    config: ResolvedConfig,
+    transforms: readonly BundlerTransform[],
+  ): Promise<TargetSet> {
     if (this.adapter.createContext === undefined) {
       throw new AddonovaError({
         code: 'ADDONOVA_DEV_CONTEXT_UNSUPPORTED',
@@ -424,7 +463,7 @@ export class DevSession {
         mkdirSync(staging, { recursive: true });
 
         const context = await this.adapter.createContext(
-          toBundlerBuildInput(config, browser, staging, this.transforms),
+          toBundlerBuildInput(config, browser, staging, transforms),
         );
 
         targets.push({
@@ -473,6 +512,11 @@ export class DevSession {
       this.printError(error);
       return;
     }
+
+    result = mergePluginDiagnostics(
+      result,
+      this.pluginManager.takeDiagnostics(),
+    );
 
     for (const warning of result.warnings) {
       this.io.stderr.write(`${formatDiagnostic(warning)}\n`);
