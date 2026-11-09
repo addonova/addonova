@@ -76,6 +76,14 @@ export {
 } from './browser/targets.ts';
 export type { BrowserTargetInfo } from './browser/targets.ts';
 
+export {
+  createPluginManager,
+  mergePluginDiagnostics,
+  validatePlugins,
+} from './plugins/manager.ts';
+export type { PluginManager } from './plugins/manager.ts';
+export type { AddonovaPlugin } from './plugins/types.ts';
+
 export { guchhoAdapter } from './bundler/guchho.ts';
 export type {
   BundlerAdapter,
