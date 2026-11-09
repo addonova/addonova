@@ -17,6 +17,7 @@ import type {
   Loader,
   Message,
   Plugin,
+  PluginContext,
 } from 'guchho';
 
 import { AddonovaError } from '../core/errors.ts';
@@ -40,19 +41,21 @@ export const guchhoAdapter: BundlerAdapter = {
     validateBuildInput(input);
 
     const started = Date.now();
+    const pluginNames = transformNames(input.transforms);
 
     try {
       const result = await guchhoBuild(toGuchhoBuildOptions(input));
 
-      return toBundlerBuildResult(result);
+      return toBundlerBuildResult(result, pluginNames);
     } catch (error) {
-      return handleBuildError(error, started);
+      return handleBuildError(error, started, pluginNames);
     }
   },
 
   async createContext(input: BundlerBuildInput): Promise<BundlerContext> {
     validateBuildInput(input);
 
+    const pluginNames = transformNames(input.transforms);
     let context: GuchhoBuildContext;
 
     try {
@@ -68,9 +71,9 @@ export const guchhoAdapter: BundlerAdapter = {
         try {
           const result = await context.rebuild();
 
-          return toBundlerBuildResult(result);
+          return toBundlerBuildResult(result, pluginNames);
         } catch (error) {
-          return handleBuildError(error, started);
+          return handleBuildError(error, started, pluginNames);
         }
       },
       async dispose(): Promise<void> {
@@ -88,7 +91,7 @@ function toGuchhoBuildOptions(input: BundlerBuildInput): BuildOptions {
   const options = toGuchhoOptions(input);
 
   if (input.transforms !== undefined && input.transforms.length > 0) {
-    options.plugins = [createTransformPlugin(input.transforms)];
+    options.plugins = input.transforms.map(createTransformPlugin);
   }
 
   return options;
@@ -136,7 +139,10 @@ export function toGuchhoOptions(input: BundlerBuildInput): BuildOptions {
   return options;
 }
 
-function toBundlerBuildResult(result: GuchhoBuildResult): BundlerBuildResult {
+function toBundlerBuildResult(
+  result: GuchhoBuildResult,
+  pluginNames: ReadonlySet<string>,
+): BundlerBuildResult {
   return {
     success: result.success,
     duration: result.duration,
@@ -148,21 +154,33 @@ function toBundlerBuildResult(result: GuchhoBuildResult): BundlerBuildResult {
       path: file.path,
       bytes: file.bytes,
     })),
-    errors: result.errors.map((message) => toDiagnostic(message, 'error')),
-    warnings: result.warnings.map((message) => toDiagnostic(message, 'warning')),
+    errors: result.errors.map((message) =>
+      toDiagnostic(message, 'error', pluginNames),
+    ),
+    warnings: result.warnings.map((message) =>
+      toDiagnostic(message, 'warning', pluginNames),
+    ),
     ...(result.metafile === undefined ? {} : { metafile: result.metafile }),
   };
 }
 
-function handleBuildError(error: unknown, started: number): BundlerBuildResult {
+function handleBuildError(
+  error: unknown,
+  started: number,
+  pluginNames: ReadonlySet<string>,
+): BundlerBuildResult {
   if (error instanceof BuildFailure) {
     return {
       success: false,
       duration: Date.now() - started,
       outputs: [],
       inputs: [],
-      errors: error.errors.map((message) => toDiagnostic(message, 'error')),
-      warnings: error.warnings.map((message) => toDiagnostic(message, 'warning')),
+      errors: error.errors.map((message) =>
+        toDiagnostic(message, 'error', pluginNames),
+      ),
+      warnings: error.warnings.map((message) =>
+        toDiagnostic(message, 'warning', pluginNames),
+      ),
     };
   }
 
@@ -203,40 +221,46 @@ function toGuchhoEntryPoint(entrypoint: BundlerEntrypoint): EntryPoint {
   };
 }
 
-function createTransformPlugin(transforms: readonly BundlerTransform[]): Plugin {
+function createTransformPlugin(transform: BundlerTransform): Plugin {
   return {
-    name: 'addonova-transforms',
-    async load(id) {
+    name: transform.name,
+    async load(this: PluginContext, id: string) {
       const loader = loaderForFile(id);
 
       if (loader === null) {
         return null;
       }
 
-      const matching = transforms.filter(
-        (transform) => transform.include === undefined || transform.include(id),
-      );
-
-      if (matching.length === 0) {
+      if (transform.include !== undefined && !transform.include(id)) {
         return null;
       }
 
-      let code = readFileSync(id, 'utf8');
-
-      for (const transform of matching) {
+      try {
+        const code = readFileSync(id, 'utf8');
         const result = await transform.transform(code, id);
 
-        if (result !== null) {
-          code = result;
-        }
+        return {
+          code: result ?? code,
+          loader,
+        };
+      } catch (error) {
+        this.error({
+          message: `Plugin "${transform.name}" failed while transforming "${id}": ${errorMessage(error)}`,
+          code: 'ADDONOVA_PLUGIN_TRANSFORM_FAILED',
+        });
       }
-
-      return {
-        code,
-        loader,
-      };
     },
   };
+}
+
+function transformNames(
+  transforms: readonly BundlerTransform[] | undefined,
+): ReadonlySet<string> {
+  return new Set((transforms ?? []).map((transform) => transform.name));
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function loaderForFile(id: string): Loader | null {
@@ -309,10 +333,14 @@ function validateBuildInput(input: BundlerBuildInput): void {
 function toDiagnostic(
   message: Message,
   severity: 'error' | 'warning',
+  pluginNames: ReadonlySet<string>,
 ): Diagnostic {
+  const pluginError =
+    severity === 'error' && pluginNames.has(message.pluginName);
   const diagnostic: Diagnostic = {
-    code:
-      severity === 'error'
+    code: pluginError
+      ? 'ADDONOVA_PLUGIN_TRANSFORM_FAILED'
+      : severity === 'error'
         ? 'ADDONOVA_BUNDLER_ERROR'
         : 'ADDONOVA_BUNDLER_WARNING',
     severity,
@@ -320,7 +348,12 @@ function toDiagnostic(
     cause: message,
   };
 
-  if (message.location !== null) {
+  if (pluginError) {
+    diagnostic.suggestion =
+      'Fix the plugin transform or the source file it processes.';
+  }
+
+  if (message.location !== null && message.location.file !== '') {
     diagnostic.location = {
       file: message.location.file,
       line: message.location.line,
