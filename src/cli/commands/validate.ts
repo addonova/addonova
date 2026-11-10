@@ -1,8 +1,10 @@
 import { buildManifest } from '../../browser/manifest.ts';
 import type { CommandContext } from '../command.ts';
 import { formatDiagnostic } from '../format.ts';
+import { getCliStyle, SYMBOLS } from '../style.ts';
 
 export function validateCommand(context: CommandContext): number {
+  const style = getCliStyle(context.io);
   let failed = false;
 
   for (const browser of context.config.browsers) {
@@ -12,20 +14,24 @@ export function validateCommand(context: CommandContext): number {
     );
 
     for (const diagnostic of builtManifest.diagnostics) {
-      context.io.stderr.write(`${formatDiagnostic(diagnostic)}\n`);
+      context.io.stderr.write(`${formatDiagnostic(diagnostic, style)}\n`);
     }
 
     if (errors.length > 0) {
       failed = true;
     } else {
       context.io.stdout.write(
-        `Validated ${browser.target} MV${browser.manifestVersion}\n`,
+        `${style.green(SYMBOLS.success)} Validated ${style.cyan(
+          browser.target,
+        )} MV${browser.manifestVersion}\n`,
       );
     }
   }
 
   if (!failed) {
-    context.io.stdout.write('Configuration is valid.\n');
+    context.io.stdout.write(
+      `${style.green(SYMBOLS.success)} Configuration is valid.\n`,
+    );
   }
 
   return failed ? 1 : 0;

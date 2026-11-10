@@ -33,6 +33,8 @@ import {
 import type { PluginManager } from '../plugins/manager.ts';
 import type { CliIo } from '../cli/command.ts';
 import { formatDiagnostic } from '../cli/format.ts';
+import { formatDuration, getCliStyle, SYMBOLS } from '../cli/style.ts';
+import type { CliStyle } from '../cli/style.ts';
 
 export type ChangeKind =
   | 'config'
@@ -177,6 +179,7 @@ export function classifyChange(file: string, config: ResolvedConfig): ChangeKind
 export class DevSession {
   private config: ResolvedConfig;
   private readonly io: CliIo;
+  private readonly style: CliStyle;
   private readonly adapter: BundlerAdapter;
   private readonly baseTransforms: readonly BundlerTransform[] | undefined;
   private pluginManager: PluginManager;
@@ -196,6 +199,7 @@ export class DevSession {
   private constructor(options: DevSessionOptions) {
     this.config = options.config;
     this.io = options.io;
+    this.style = getCliStyle(options.io);
     this.adapter = options.adapter ?? guchhoAdapter;
     this.baseTransforms = options.transforms;
     this.pluginManager = createPluginManager(options.config.plugins);
@@ -251,7 +255,9 @@ export class DevSession {
     });
 
     this.io.stdout.write(
-      `Watching ${this.config.root} for changes. Press Ctrl+C to stop.\n`,
+      `${this.style.cyan(SYMBOLS.info)} Watching ${this.style.cyan(
+        this.config.root,
+      )} for changes. Press Ctrl+C to stop.\n`,
     );
   }
 
@@ -264,7 +270,9 @@ export class DevSession {
     const relative = path.relative(this.config.root, path.resolve(file));
 
     this.io.stdout.write(
-      `Change detected (${kind}): ${relative.split(path.sep).join('/')}\n`,
+      `${this.style.cyan(SYMBOLS.info)} Change detected (${this.style.yellow(
+        kind,
+      )}): ${this.style.dim(relative.split(path.sep).join('/'))}\n`,
     );
 
     if (kind === 'config') {
@@ -418,7 +426,11 @@ export class DevSession {
       await this.disposeTargetSet(previousSet);
     }
 
-    this.io.stdout.write(`Reloaded configuration ${this.config.configPath ?? '(defaults)'}\n`);
+    this.io.stdout.write(
+      `${this.style.cyan(SYMBOLS.info)} Reloaded configuration ${this.style.dim(
+        this.config.configPath ?? '(defaults)',
+      )}\n`,
+    );
 
     return true;
   }
@@ -519,16 +531,18 @@ export class DevSession {
     );
 
     for (const warning of result.warnings) {
-      this.io.stderr.write(`${formatDiagnostic(warning)}\n`);
+      this.io.stderr.write(`${formatDiagnostic(warning, this.style)}\n`);
     }
 
     if (!result.success) {
       for (const error of result.errors) {
-        this.io.stderr.write(`${formatDiagnostic(error)}\n`);
+        this.io.stderr.write(`${formatDiagnostic(error, this.style)}\n`);
       }
 
       this.io.stderr.write(
-        `Dev build failed for ${target.browser.target} MV${target.browser.manifestVersion}; keeping the last successful output.\n`,
+        `${this.style.red(SYMBOLS.error)} Dev build failed for ${this.style.cyan(
+          target.browser.target,
+        )} MV${target.browser.manifestVersion}; keeping the last successful output.\n`,
       );
       return;
     }
@@ -546,7 +560,7 @@ export class DevSession {
       );
 
       for (const warning of publicCopy.warnings) {
-        this.io.stderr.write(`${formatDiagnostic(warning)}\n`);
+        this.io.stderr.write(`${formatDiagnostic(warning, this.style)}\n`);
       }
 
       const availableFiles = new Set([
@@ -560,12 +574,14 @@ export class DevSession {
       });
 
       for (const diagnostic of builtManifest.diagnostics) {
-        this.io.stderr.write(`${formatDiagnostic(diagnostic)}\n`);
+        this.io.stderr.write(`${formatDiagnostic(diagnostic, this.style)}\n`);
       }
 
       if (builtManifest.hasErrors) {
         this.io.stderr.write(
-          `Dev build failed for ${target.browser.target} MV${target.browser.manifestVersion}; keeping the last successful output.\n`,
+          `${this.style.red(SYMBOLS.error)} Dev build failed for ${this.style.cyan(
+            target.browser.target,
+          )} MV${target.browser.manifestVersion}; keeping the last successful output.\n`,
         );
         return;
       }
@@ -577,9 +593,11 @@ export class DevSession {
       const verb = reason === 'initial' ? 'Built' : 'Rebuilt';
 
       this.io.stdout.write(
-        `${verb} ${target.browser.target} MV${target.browser.manifestVersion} -> ${
-          target.outdir
-        } (${duration}ms, ${result.outputs.length} outputs)\n`,
+        `${this.style.green(SYMBOLS.success)} ${verb} ${this.style.cyan(
+          target.browser.target,
+        )} MV${target.browser.manifestVersion} -> ${this.style.dim(
+          target.outdir,
+        )} (${formatDuration(duration)}, ${result.outputs.length} outputs)\n`,
       );
     } catch (error) {
       this.printError(error);
@@ -629,7 +647,9 @@ export class DevSession {
   }
 
   private printError(error: unknown): void {
-    this.io.stderr.write(`${formatDiagnostic(toDiagnostic(error))}\n`);
+    this.io.stderr.write(
+      `${formatDiagnostic(toDiagnostic(error), this.style)}\n`,
+    );
   }
 }
 

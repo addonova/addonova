@@ -31,8 +31,6 @@ import type {
   BundlerTransform,
 } from './adapter.ts';
 
-const DEFAULT_EXTERNAL = ['@addonova/browser'] as const;
-
 export const guchhoAdapter: BundlerAdapter = {
   name: 'guchho',
   version: guchhoVersion,
@@ -112,7 +110,7 @@ export function toGuchhoOptions(input: BundlerBuildInput): BuildOptions {
     metafile: input.metafile ?? true,
     allowOverwrite: true,
     logLevel: 'silent',
-    external: [...DEFAULT_EXTERNAL, ...(input.external ?? [])],
+    external: [...(input.external ?? [])],
   };
 
   if (input.sourcemap !== undefined) {

@@ -33,9 +33,24 @@ describe('CLI argument parsing', () => {
       minify: false,
       sourcemap: 'inline',
       verbose: true,
+      noColor: false,
       help: false,
       version: false,
     });
+  });
+
+  it('parses the no-color flag', () => {
+    expect(parseArgs(['build', '--no-color']).noColor).toBe(true);
+    expectCliError(['build', '--no-color=true'], 'ADDONOVA_CLI_INVALID_VALUE');
+  });
+
+  it('parses the browser API mode', () => {
+    expect(parseArgs(['build', '--browser-api', 'bundle']).browserApi).toBe(
+      'bundle',
+    );
+    expect(parseArgs(['build', '--browser-api=external']).browserApi).toBe(
+      'external',
+    );
   });
 
   it('parses flags without values and the command separator', () => {
@@ -70,6 +85,11 @@ describe('CLI argument parsing', () => {
       '--manifest-version 2',
     );
     expectCliError(['build', '--mode', 'test'], 'ADDONOVA_CLI_INVALID_VALUE');
+    expectCliError(
+      ['build', '--browser-api', 'inline'],
+      'ADDONOVA_CLI_INVALID_VALUE',
+      'external, bundle',
+    );
     expectCliError(['build', '--sourcemap=wat'], 'ADDONOVA_CLI_INVALID_VALUE');
     expectCliError(['build', '--verbose=yes'], 'ADDONOVA_CLI_INVALID_VALUE');
   });

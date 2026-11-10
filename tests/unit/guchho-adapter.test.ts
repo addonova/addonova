@@ -47,7 +47,7 @@ describe('guchho adapter', () => {
       minifyHtml: true,
       metafile: true,
       allowOverwrite: true,
-      external: ['@addonova/browser'],
+      external: [],
     });
   });
 
@@ -82,7 +82,7 @@ describe('guchho adapter', () => {
       target: ['chrome120', 'firefox120'],
       define: { DEBUG: 'true' },
       alias: { '@': 'C:\\project\\src' },
-      external: ['@addonova/browser', 'lodash'],
+      external: ['lodash'],
       loader: { '.txt': 'text' },
     });
   });

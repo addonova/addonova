@@ -20,6 +20,10 @@ export type ArchiveFormat = 'zip' | 'tar' | 'tar.gz';
 
 export const ARCHIVE_FORMATS: readonly ArchiveFormat[] = ['zip', 'tar', 'tar.gz'];
 
+export type BrowserApiMode = 'external' | 'bundle';
+
+export const BROWSER_API_MODES: readonly BrowserApiMode[] = ['external', 'bundle'];
+
 export const DEFAULT_BROWSER: BrowserTarget = 'chrome';
 
 export const DEFAULT_MANIFEST_VERSION: Readonly<Record<BrowserTarget, ManifestVersion>> = {
@@ -57,4 +61,8 @@ export function isSourcemapOption(value: unknown): value is SourcemapOption {
 
 export function isArchiveFormat(value: unknown): value is ArchiveFormat {
   return ARCHIVE_FORMATS.includes(value as ArchiveFormat);
+}
+
+export function isBrowserApiMode(value: unknown): value is BrowserApiMode {
+  return BROWSER_API_MODES.includes(value as BrowserApiMode);
 }

@@ -11,12 +11,14 @@ export type {
 } from './core/errors.ts';
 export {
   ARCHIVE_FORMATS,
+  BROWSER_API_MODES,
   BROWSER_TARGETS,
   DEFAULT_BROWSER,
   DEFAULT_MANIFEST_VERSION,
 } from './core/types.ts';
 export type {
   ArchiveFormat,
+  BrowserApiMode,
   BuildMode,
   BrowserTarget,
   EntrypointKind,
@@ -25,9 +27,11 @@ export type {
 } from './core/types.ts';
 export { defineConfig } from './core/config.ts';
 export type {
+  AddonovaBrowserApiConfig,
   AddonovaPackConfig,
   AddonovaUserConfig,
   ResolvedBrowser,
+  ResolvedBrowserApiConfig,
   ResolvedConfig,
   ResolvedEntrypoint,
   ResolvedPackConfig,
@@ -75,6 +79,12 @@ export {
   supportsManifestVersion,
 } from './browser/targets.ts';
 export type { BrowserTargetInfo } from './browser/targets.ts';
+export {
+  BROWSER_API_SUBPATHS,
+  assertBrowserApiInstalled,
+  getBrowserApiBundlerSettings,
+} from './browser/api-integration.ts';
+export type { BrowserApiBundlerSettings } from './browser/api-integration.ts';
 
 export {
   createPluginManager,

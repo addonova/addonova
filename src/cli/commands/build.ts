@@ -1,7 +1,11 @@
 import { buildProject } from '../../core/build.ts';
+import type { ProjectBuildResult } from '../../core/build.ts';
 import { AddonovaError } from '../../core/errors.ts';
 import type { CommandContext } from '../command.ts';
 import { formatDiagnostic } from '../format.ts';
+import { createSpinner } from '../spinner.ts';
+import { getCliStyle, isInteractive, SYMBOLS } from '../style.ts';
+import { writeBuildSummary } from '../summary.ts';
 
 export async function buildCommand(context: CommandContext): Promise<number> {
   if (context.config.entrypoints.length === 0) {
@@ -16,7 +20,26 @@ export async function buildCommand(context: CommandContext): Promise<number> {
     });
   }
 
-  const reports = await buildProject(context.config);
+  const style = getCliStyle(context.io);
+  const targets = context.config.browsers
+    .map((browser) => `${browser.target}-mv${browser.manifestVersion}`)
+    .join(', ');
+  const spinner = createSpinner(
+    context.io.stdout,
+    style,
+    isInteractive(context.io),
+    `Building ${targets} for ${context.config.mode}...`,
+  );
+  let reports: readonly ProjectBuildResult[] = [];
+
+  spinner.start();
+
+  try {
+    reports = await buildProject(context.config);
+  } finally {
+    spinner.clear();
+  }
+
   let failed = false;
 
   for (const report of reports) {
@@ -25,13 +48,23 @@ export async function buildCommand(context: CommandContext): Promise<number> {
       (diagnostic) => diagnostic.severity === 'error',
     );
     const success = result.success && manifestErrors.length === 0;
-    const status = success ? 'Built' : 'Build failed';
+    const target = `${report.browser.target} MV${report.browser.manifestVersion}`;
 
-    context.io.stdout.write(
-      `${status} ${report.browser.target} MV${report.browser.manifestVersion} -> ${
-        report.outdir
-      } (${result.duration}ms, ${result.outputs.length} outputs)\n`,
-    );
+    if (success) {
+      writeBuildSummary(context.io, style, {
+        label: `Built ${target}`,
+        duration: result.duration,
+        outdir: report.outdir,
+        cwd: context.io.cwd,
+      });
+    } else {
+      failed = true;
+      context.io.stdout.write(
+        `${style.red(SYMBOLS.error)} Build failed ${target} -> ${style.dim(
+          report.outdir,
+        )}\n`,
+      );
+    }
 
     for (const warning of [
       ...result.warnings,
@@ -40,12 +73,12 @@ export async function buildCommand(context: CommandContext): Promise<number> {
         (diagnostic) => diagnostic.severity !== 'error',
       ),
     ]) {
-      context.io.stderr.write(`${formatDiagnostic(warning)}\n`);
+      context.io.stderr.write(`${formatDiagnostic(warning, style)}\n`);
     }
 
     for (const error of [...result.errors, ...manifestErrors]) {
       failed = true;
-      context.io.stderr.write(`${formatDiagnostic(error)}\n`);
+      context.io.stderr.write(`${formatDiagnostic(error, style)}\n`);
     }
   }
 

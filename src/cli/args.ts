@@ -1,12 +1,15 @@
 import { AddonovaError } from '../core/errors.ts';
 import {
+  BROWSER_API_MODES,
   BROWSER_TARGETS,
+  isBrowserApiMode,
   isBrowserTarget,
   isBuildMode,
   isManifestVersion,
   isSourcemapOption,
 } from '../core/types.ts';
 import type {
+  BrowserApiMode,
   BuildMode,
   BrowserTarget,
   ManifestVersion,
@@ -26,7 +29,9 @@ export interface CliOptions {
   outdir?: string;
   minify?: boolean;
   sourcemap?: SourcemapOption;
+  browserApi?: BrowserApiMode;
   verbose: boolean;
+  noColor: boolean;
   help: boolean;
   version: boolean;
 }
@@ -35,6 +40,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   const options: CliOptions = {
     browsers: [],
     verbose: false,
+    noColor: false,
     help: false,
     version: false,
   };
@@ -134,6 +140,11 @@ function parseLongOption(
       return index + 1;
     }
 
+    case 'no-color':
+      rejectInlineValue(name, inlineValue);
+      options.noColor = true;
+      return index + 1;
+
     case 'browser': {
       const parsed = readValue(name, inlineValue, argv, index);
 
@@ -225,6 +236,21 @@ function parseLongOption(
       rejectInlineValue(name, inlineValue);
       options.sourcemap = false;
       return index + 1;
+
+    case 'browser-api': {
+      const parsed = readValue(name, inlineValue, argv, index);
+
+      if (!isBrowserApiMode(parsed.value)) {
+        throw cliError(
+          'ADDONOVA_CLI_INVALID_VALUE',
+          `Invalid browser API mode "${parsed.value}".`,
+          `Use one of: ${BROWSER_API_MODES.join(', ')}.`,
+        );
+      }
+
+      options.browserApi = parsed.value;
+      return parsed.nextIndex;
+    }
 
     default:
       throw cliError(

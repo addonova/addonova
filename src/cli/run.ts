@@ -8,6 +8,13 @@ import type { CliIo } from './command.ts';
 import { commandHandlers } from './commands/index.ts';
 import { formatDiagnostic } from './format.ts';
 import { renderHelp } from './help.ts';
+import {
+  createCliStyle,
+  formatDuration,
+  resolveColorEnabled,
+  SYMBOLS,
+} from './style.ts';
+import type { CliStyle } from './style.ts';
 
 export interface RunCliOptions {
   signal?: AbortSignal;
@@ -37,6 +44,18 @@ export async function runCli(
     return 0;
   }
 
+  const style = createCliStyle(resolveColorEnabled(io, options.noColor));
+  const commandIo: CliIo = {
+    ...io,
+    env: io.env ?? process.env,
+    color: style.enabled,
+  };
+  const started = Date.now();
+
+  io.stdout.write(
+    `\n${style.gray('Addonova')} ${style.bold(style.gray(ADDONOVA_VERSION))}\n`,
+  );
+
   try {
     const overrides: ConfigOverrides = {};
 
@@ -64,6 +83,10 @@ export async function runCli(
       overrides.sourcemap = options.sourcemap;
     }
 
+    if (options.browserApi !== undefined) {
+      overrides.browserApi = options.browserApi;
+    }
+
     const resolveConfig = (): Promise<ResolvedConfig> =>
       resolveProjectConfig({
         cwd: io.cwd,
@@ -75,17 +98,39 @@ export async function runCli(
       });
     const config = await resolveConfig();
     const handler = commandHandlers[options.command];
-
-    return await handler({
+    const exitCode = await handler({
       cwd: io.cwd,
       options,
       config,
-      io,
+      io: commandIo,
       reloadConfig: resolveConfig,
       ...(runOptions.signal === undefined ? {} : { signal: runOptions.signal }),
     });
+
+    if (exitCode === 0) {
+      if (options.command !== 'dev') {
+        commandIo.stdout.write(
+          `${style.green(SYMBOLS.success)} Finished in ${formatDuration(
+            Date.now() - started,
+          )}\n`,
+        );
+      }
+    } else {
+      commandIo.stderr.write(
+        `${style.red(SYMBOLS.error)} Command failed after ${formatDuration(
+          Date.now() - started,
+        )}\n`,
+      );
+    }
+
+    return exitCode;
   } catch (error) {
-    printError(error, io, options.verbose);
+    commandIo.stderr.write(
+      `${style.red(SYMBOLS.error)} Command failed after ${formatDuration(
+        Date.now() - started,
+      )}\n`,
+    );
+    printError(error, commandIo, options.verbose, style);
     return 1;
   }
 }
@@ -97,17 +142,28 @@ export function createDefaultIo(): CliIo {
       write(chunk: string) {
         return process.stdout.write(chunk);
       },
+      ...(process.stdout.isTTY === undefined
+        ? {}
+        : { isTTY: process.stdout.isTTY }),
     },
     stderr: {
       write(chunk: string) {
         return process.stderr.write(chunk);
       },
+      ...(process.stderr.isTTY === undefined
+        ? {}
+        : { isTTY: process.stderr.isTTY }),
     },
   };
 }
 
-function printError(error: unknown, io: CliIo, verbose: boolean): void {
-  io.stderr.write(`${formatDiagnostic(toDiagnostic(error))}\n`);
+function printError(
+  error: unknown,
+  io: CliIo,
+  verbose: boolean,
+  style?: CliStyle,
+): void {
+  io.stderr.write(`${formatDiagnostic(toDiagnostic(error), style)}\n`);
 
   if (verbose && error instanceof Error && error.stack !== undefined) {
     io.stderr.write(`${error.stack}\n`);

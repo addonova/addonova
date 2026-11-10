@@ -1,6 +1,6 @@
 {
   "name": "addonova",
-  "version": "1.0.6",
+  "version": "1.2.0",
   "description": "Next-gen browser extension framework",
   "type": "module",
   "bin": {
@@ -51,6 +51,14 @@
     "chokidar": "^4.0.3",
     "guchho": "1.0.9",
     "jiti": "^2.7.0"
+  },
+  "peerDependencies": {
+    "@addonova/browser": "^0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@addonova/browser": {
+      "optional": true
+    }
   },
   "allowScripts": {
     "guchho@1.0.9": true

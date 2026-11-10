@@ -29,6 +29,11 @@ const config: ResolvedConfig = {
   mode: 'development',
   minify: false,
   sourcemap: true,
+  browserApi: {
+    mode: 'external',
+    packageName: '@addonova/browser',
+    define: true,
+  },
   plugins: [],
   pack: {
     outFile: null,

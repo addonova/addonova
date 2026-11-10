@@ -134,6 +134,11 @@ describe('configuration resolution', () => {
     expect(config.mode).toBe('production');
     expect(config.minify).toBe(true);
     expect(config.sourcemap).toBe(false);
+    expect(config.browserApi).toEqual({
+      mode: 'external',
+      packageName: '@addonova/browser',
+      define: true,
+    });
     expect(config.browsers).toEqual([
       {
         target: 'chrome',
@@ -193,6 +198,63 @@ describe('configuration resolution', () => {
         kind: 'script',
       },
     ]);
+  });
+
+  it('normalizes browser API modes, packages, and CLI overrides', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  browserApi: {
+    mode: 'bundle',
+    package: '@addonova/browser',
+    define: false,
+  },
+  browsers: ['chrome', 'firefox'],
+};
+`,
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+
+    expect(config.browserApi).toEqual({
+      mode: 'bundle',
+      packageName: '@addonova/browser',
+      define: false,
+    });
+
+    const overridden = await resolveProjectConfig({
+      cwd: root,
+      overrides: { browserApi: 'external' },
+    });
+
+    expect(overridden.browserApi).toEqual({
+      mode: 'external',
+      packageName: '@addonova/browser',
+      define: false,
+    });
+  });
+
+  it('rejects invalid browser API configuration', async () => {
+    const badMode = createProject({
+      'addonova.config.ts': `export default { browserApi: 'inline' };\n`,
+    });
+    const badPackage = createProject({
+      'addonova.config.ts': `export default { browserApi: { package: '' } };\n`,
+    });
+    const badDefine = createProject({
+      'addonova.config.ts': `export default { browserApi: { define: 'yes' } };\n`,
+    });
+
+    await expectConfigErrorAsync(
+      () => resolveProjectConfig({ cwd: badMode }),
+      'ADDONOVA_CONFIG_BROWSER_API',
+    );
+    await expectConfigErrorAsync(
+      () => resolveProjectConfig({ cwd: badPackage }),
+      'ADDONOVA_CONFIG_BROWSER_API',
+    );
+    await expectConfigErrorAsync(
+      () => resolveProjectConfig({ cwd: badDefine }),
+      'ADDONOVA_CONFIG_BROWSER_API',
+    );
   });
 
   it('rejects an explicit config path that does not exist', () => {

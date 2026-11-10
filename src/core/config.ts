@@ -15,6 +15,7 @@ import {
   DEFAULT_BROWSER,
   DEFAULT_MANIFEST_VERSION,
   isArchiveFormat,
+  isBrowserApiMode,
   isBrowserTarget,
   isBuildMode,
   isManifestVersion,
@@ -22,6 +23,7 @@ import {
 } from './types.ts';
 import type {
   ArchiveFormat,
+  BrowserApiMode,
   BuildMode,
   BrowserTarget,
   EntrypointKind,
@@ -53,6 +55,18 @@ export interface AddonovaPackConfig {
   deterministic?: boolean;
 }
 
+export interface AddonovaBrowserApiConfig {
+  mode?: BrowserApiMode;
+  package?: string;
+  define?: boolean;
+}
+
+export interface ResolvedBrowserApiConfig {
+  mode: BrowserApiMode;
+  packageName: string;
+  define: boolean;
+}
+
 export interface AddonovaUserConfig {
   entrypoints?: EntrypointsInput;
   browsers?: readonly BrowserTarget[] | BrowserOverridesInput;
@@ -62,6 +76,7 @@ export interface AddonovaUserConfig {
   minify?: boolean;
   sourcemap?: SourcemapOption;
   mode?: BuildMode;
+  browserApi?: BrowserApiMode | AddonovaBrowserApiConfig;
   plugins?: readonly AddonovaPlugin[];
   pack?: AddonovaPackConfig;
 }
@@ -97,6 +112,7 @@ export interface ResolvedConfig {
   mode: BuildMode;
   minify: boolean;
   sourcemap: SourcemapOption;
+  browserApi: ResolvedBrowserApiConfig;
   plugins: readonly AddonovaPlugin[];
   pack: ResolvedPackConfig;
 }
@@ -108,6 +124,7 @@ export interface ConfigOverrides {
   outdir?: string;
   minify?: boolean;
   sourcemap?: SourcemapOption;
+  browserApi?: BrowserApiMode;
 }
 
 export interface NormalizeConfigOptions {
@@ -264,6 +281,11 @@ export function normalizeConfig(
       overrides.sourcemap ??
       userConfig.sourcemap ??
       (mode === 'development' ? true : false),
+    browserApi: normalizeBrowserApi(
+      userConfig.browserApi,
+      overrides.browserApi,
+      configPath,
+    ),
     plugins: validatePlugins(
       userConfig.plugins,
       configPath === null ? undefined : { file: configPath },
@@ -326,6 +348,83 @@ function validateConfigValues(config: AddonovaUserConfig, configPath: string | n
       configPath,
     );
   }
+}
+
+function normalizeBrowserApi(
+  rawConfig: AddonovaUserConfig['browserApi'],
+  modeOverride: BrowserApiMode | undefined,
+  configPath: string | null,
+): ResolvedBrowserApiConfig {
+  let mode: BrowserApiMode = modeOverride ?? 'external';
+  let packageName = '@addonova/browser';
+  let define = true;
+
+  if (typeof rawConfig === 'string') {
+    if (!isBrowserApiMode(rawConfig)) {
+      throw configError(
+        'ADDONOVA_CONFIG_BROWSER_API',
+        `Config "browserApi" must be "external" or "bundle".`,
+        'Use browserApi: "external" or browserApi: "bundle".',
+        configPath,
+      );
+    }
+
+    if (modeOverride === undefined) {
+      mode = rawConfig;
+    }
+  } else if (rawConfig !== undefined) {
+    if (!isPlainObject(rawConfig)) {
+      throw configError(
+        'ADDONOVA_CONFIG_BROWSER_API',
+        'Config "browserApi" must be a mode string or an object.',
+        'Use "external", "bundle", or { mode, package, define }.',
+        configPath,
+      );
+    }
+
+    if (rawConfig.mode !== undefined) {
+      if (!isBrowserApiMode(rawConfig.mode)) {
+        throw configError(
+          'ADDONOVA_CONFIG_BROWSER_API',
+          'Config "browserApi.mode" must be "external" or "bundle".',
+          'Use "external" or "bundle".',
+          configPath,
+        );
+      }
+
+      if (modeOverride === undefined) {
+        mode = rawConfig.mode;
+      }
+    }
+
+    if (rawConfig.package !== undefined) {
+      if (!isNonEmptyString(rawConfig.package)) {
+        throw configError(
+          'ADDONOVA_CONFIG_BROWSER_API',
+          'Config "browserApi.package" must be a non-empty string.',
+          'Use the package name "@addonova/browser".',
+          configPath,
+        );
+      }
+
+      packageName = rawConfig.package;
+    }
+
+    if (rawConfig.define !== undefined) {
+      if (typeof rawConfig.define !== 'boolean') {
+        throw configError(
+          'ADDONOVA_CONFIG_BROWSER_API',
+          'Config "browserApi.define" must be true or false.',
+          'Use a boolean value.',
+          configPath,
+        );
+      }
+
+      define = rawConfig.define;
+    }
+  }
+
+  return { mode, packageName, define };
 }
 
 function normalizePack(

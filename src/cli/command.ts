@@ -3,12 +3,15 @@ import type { CliOptions } from './args.ts';
 
 export interface CliWriter {
   write(chunk: string): unknown;
+  readonly isTTY?: boolean;
 }
 
 export interface CliIo {
   cwd: string;
   stdout: CliWriter;
   stderr: CliWriter;
+  env?: NodeJS.ProcessEnv;
+  color?: boolean;
 }
 
 export interface CommandContext {

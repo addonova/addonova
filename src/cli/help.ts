@@ -22,7 +22,9 @@ Options:
   --no-minify                Disable minification
   --sourcemap[=mode]         Enable source maps or select a mode
   --no-sourcemap             Disable source maps
+  --browser-api <mode>       Browser API integration: external or bundle
   --verbose                  Show additional error details
+  --no-color                 Disable colored output
   -h, --help                 Show this help
   -V, --version              Show the Addonova version
 `;

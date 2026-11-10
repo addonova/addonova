@@ -15,6 +15,10 @@ import type {
 } from '../bundler/adapter.ts';
 import { guchhoAdapter } from '../bundler/guchho.ts';
 import {
+  assertBrowserApiInstalled,
+  getBrowserApiBundlerSettings,
+} from '../browser/api-integration.ts';
+import {
   buildManifest,
   writeManifest,
 } from '../browser/manifest.ts';
@@ -115,10 +119,17 @@ export async function buildProject(
 
 export function toBundlerBuildInput(
   config: ResolvedConfig,
-  _browser: ResolvedBrowser,
+  browser: ResolvedBrowser,
   outdir: string,
   transforms?: readonly BundlerTransform[],
 ): BundlerBuildInput {
+  assertBrowserApiInstalled(config.root, config.browserApi);
+
+  const browserApi = getBrowserApiBundlerSettings(
+    browser.target,
+    config.browserApi,
+  );
+
   return {
     root: config.root,
     outdir,
@@ -132,7 +143,13 @@ export function toBundlerBuildInput(
     minifyHtml: config.minify,
     sourcemap: config.sourcemap,
     metafile: true,
-    external: ['@addonova/browser'],
+    ...(Object.keys(browserApi.alias).length === 0
+      ? {}
+      : { alias: browserApi.alias }),
+    ...(Object.keys(browserApi.define).length === 0
+      ? {}
+      : { define: browserApi.define }),
+    external: [...browserApi.external],
     ...(transforms === undefined ? {} : { transforms }),
   };
 }

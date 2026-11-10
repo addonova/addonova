@@ -51,12 +51,14 @@ describe('CLI runner', () => {
     expect(exitCode).toBe(0);
     expect(stderr()).toBe('');
     expect(stdout()).toContain('Addonova ');
-    expect(stdout()).toContain(`Config ${path.join(root, 'addonova.config.ts')}`);
-    expect(stdout()).toContain(`Project root ${root}`);
-    expect(stdout()).toContain('Entrypoints 1');
-    expect(stdout()).toContain('background (script)');
+    expect(stdout()).toContain(path.join(root, 'addonova.config.ts'));
+    expect(stdout()).toContain('Project root');
+    expect(stdout()).toContain('Entrypoints');
+    expect(stdout()).toContain('background');
+    expect(stdout()).toContain('(script)');
     expect(stdout()).toContain('chrome (MV3), firefox (MV3)');
-    expect(stdout()).toContain('Manifest CLI Demo 1.0.0');
+    expect(stdout()).toContain('Manifest');
+    expect(stdout()).toContain('CLI Demo 1.0.0');
   });
 
   it('reports CLI parse errors and exits with code 1', async () => {
@@ -85,7 +87,37 @@ describe('CLI runner', () => {
     expect(exitCode).toBe(0);
     expect(stderr()).toBe('');
     expect(stdout()).toContain('Built chrome MV3');
-    expect(stdout()).toContain('1 outputs');
+    expect(stdout()).toContain('background.js');
+    expect(stdout()).toContain('Σ Total size:');
+  });
+
+  it('styles output when color is enabled and strips it with --no-color', async () => {
+    const config = `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'CLI Color', version: '1.0.0' },
+};
+`;
+    const coloredRoot = createProject({
+      'addonova.config.ts': config,
+      'src/background.ts': 'export {};\n',
+    });
+    const colored = createIo(coloredRoot, { color: true });
+
+    await expect(runCli(['build'], colored.io)).resolves.toBe(0);
+
+    expect(colored.stdout()).toContain('\u001B[');
+    expect(colored.stdout()).toContain('✔');
+
+    const plainRoot = createProject({
+      'addonova.config.ts': config,
+      'src/background.ts': 'export {};\n',
+    });
+    const plain = createIo(plainRoot, { color: true });
+
+    await expect(runCli(['build', '--no-color'], plain.io)).resolves.toBe(0);
+
+    expect(plain.stdout()).not.toContain('\u001B[');
+    expect(plain.stdout()).toContain('✔');
   });
 
   it('validates manifest configuration without writing output', async () => {
@@ -300,6 +332,7 @@ function createProject(files: Readonly<Record<string, string>>): string {
 
 function createIo(
   cwd: string,
+  options: { color?: boolean; isTTY?: boolean } = {},
 ): { io: CliIo; stdout: () => string; stderr: () => string } {
   let stdout = '';
   let stderr = '';
@@ -312,13 +345,16 @@ function createIo(
           stdout += chunk;
           return true;
         },
+        ...(options.isTTY === undefined ? {} : { isTTY: options.isTTY }),
       },
       stderr: {
         write(chunk: string) {
           stderr += chunk;
           return true;
         },
+        ...(options.isTTY === undefined ? {} : { isTTY: options.isTTY }),
       },
+      ...(options.color === undefined ? {} : { color: options.color }),
     },
     stdout: () => stdout,
     stderr: () => stderr,
