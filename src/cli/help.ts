@@ -11,7 +11,7 @@ Commands:
   clean       Remove generated output
   info        Show environment and configuration details
   doctor      Diagnose the local build environment
-  validate    Validate configuration and manifest structure
+  validate    Validate configuration, manifests, and locales
   pack        Package a built extension
   zip         Package a built extension as a zip archive
   analyze     Report bundle inputs, outputs, and dependencies
