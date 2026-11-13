@@ -43,6 +43,47 @@ export type {
   ResolvedPackConfig,
 } from './core/config.ts';
 export {
+  WEB_EXT_CONFIG_FILENAMES,
+  createDefaultWebExtConfig,
+  defineWebExtConfig,
+  findWebExtConfigFile,
+  loadWebExtConfigFile,
+  mergeWebExtConfig,
+  normalizeWebExtConfig,
+  resolveWebExtConfig,
+} from './launcher/config.ts';
+export {
+  createBrowserLauncher,
+  launchBrowser,
+} from './launcher/launcher.ts';
+export type {
+  CreateBrowserLauncherOptions,
+} from './launcher/launcher.ts';
+export {
+  findBrowserBinary,
+  tryFindBrowserBinary,
+} from './launcher/browser-paths.ts';
+export type {
+  FindBrowserBinaryOptions,
+} from './launcher/browser-paths.ts';
+export {
+  getBrowserAdapter,
+} from './launcher/adapters/index.ts';
+export type {
+  BrowserAdapter,
+  LaunchBrowserOptions,
+} from './launcher/adapters/index.ts';
+export type {
+  ResolveWebExtConfigOptions,
+} from './launcher/config.ts';
+export type {
+  BrowserLauncher,
+  BrowserProfilePlan,
+  ResolvedWebExtConfig,
+  RunningBrowser,
+  WebExtConfig,
+} from './launcher/types.ts';
+export {
   ENTRYPOINT_TYPES,
   detectEntrypointKind,
   discoverEntrypoints,
@@ -165,6 +206,7 @@ export {
   createDevSession,
 } from './dev/watcher.ts';
 export type {
+  BrowserLauncherFactory,
   ChangeKind,
   DevSessionOptions,
   DevWatcher,
