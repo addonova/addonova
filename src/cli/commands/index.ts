@@ -4,6 +4,7 @@ import { analyzeCommand } from './analyze.ts';
 import { buildCommand } from './build.ts';
 import { cleanCommand } from './clean.ts';
 import { devCommand } from './dev.ts';
+import { doctorCommand } from './doctor.ts';
 import { infoCommand } from './info.ts';
 import { packCommand } from './pack.ts';
 import { validateCommand } from './validate.ts';
@@ -22,6 +23,7 @@ export const commandHandlers: Readonly<
   pack: packCommand,
   zip: zipCommand,
   analyze: analyzeCommand,
+  doctor: doctorCommand,
 };
 
 export { initCommand } from './init.ts';
