@@ -28,6 +28,7 @@ export const COMMANDS = [
   'pack',
   'zip',
   'analyze',
+  'doctor',
 ] as const;
 
 export type CommandName = (typeof COMMANDS)[number];
