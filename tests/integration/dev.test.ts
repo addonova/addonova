@@ -41,6 +41,7 @@ describe('dev session', () => {
   browsers: ['chrome'],
   manifest: { name: 'Dev Demo', version: '1.0.0' },
   minify: false,
+  webExt: { disabled: true },
 };
 `,
       'src/background.ts': 'export {};\n',
@@ -111,6 +112,7 @@ describe('dev session', () => {
   browsers: ['chrome', 'edge'],
   manifest: { name: 'Dev Demo 2', version: '1.0.1' },
   minify: false,
+  webExt: { disabled: true },
 };
 `,
       'utf8',
@@ -143,6 +145,7 @@ describe('dev session', () => {
   entrypoints: { background: 'src/background.ts' },
   manifest: { name: 'Real Dev Demo', version: '1.0.0' },
   minify: false,
+  webExt: { disabled: true },
 };
 `,
       'src/background.ts': 'console.log("dev-v1");\n',
