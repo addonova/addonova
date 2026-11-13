@@ -125,6 +125,7 @@ describe('project plugins', () => {
   entrypoints: { background: 'src/background.ts' },
   manifest: { name: 'Plugin Dev', version: '1.0.0' },
   minify: false,
+  webExt: { disabled: true },
   plugins: [
     {
       name: 'dev-marker',
