@@ -2,6 +2,9 @@ import { readFileSync } from 'node:fs';
 
 interface PackageMetadata {
   version: string;
+  engines?: {
+    node?: string;
+  };
 }
 
 const packageMetadata = JSON.parse(
@@ -9,3 +12,5 @@ const packageMetadata = JSON.parse(
 ) as PackageMetadata;
 
 export const ADDONOVA_VERSION = packageMetadata.version;
+
+export const ADDONOVA_NODE_RANGE = packageMetadata.engines?.node ?? '>=20';
