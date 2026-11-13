@@ -13,7 +13,6 @@ import { resolveProjectConfig } from '../../src/core/config.ts';
 import { AddonovaError } from '../../src/core/errors.ts';
 import {
   createDefaultWebExtConfig,
-  defineWebExtConfig,
   mergeWebExtConfig,
 } from '../../src/launcher/config.ts';
 
@@ -25,7 +24,7 @@ afterEach(() => {
   }
 });
 
-describe('web-ext configuration', () => {
+describe('launcher configuration', () => {
   it('provides launcher defaults', async () => {
     const root = createProject({});
     const config = await resolveProjectConfig({
@@ -36,12 +35,14 @@ describe('web-ext configuration', () => {
     expect(config.webExt).toEqual(createDefaultWebExtConfig());
   });
 
-  it('merges global, project config, and project web-ext config by precedence', async () => {
+  it('merges global and project configuration by precedence', async () => {
     const root = createProject({
-      'home/.addonova/web-ext.config.ts': `export default {
-  binaries: { chrome: '/global/chrome' },
-  chromiumArgs: ['--global'],
-  startUrls: ['https://global.example'],
+      'home/.addonova/addonova.config.ts': `export default {
+  webExt: {
+    binaries: { chrome: '/global/chrome' },
+    chromiumArgs: ['--global'],
+    startUrls: ['https://global.example'],
+  },
 };
 `,
       'addonova.config.ts': `export default {
@@ -55,10 +56,37 @@ describe('web-ext configuration', () => {
   },
 };
 `,
-      'web-ext.config.ts': `export default {
-  disabled: true,
-  binaries: { edge: '/project/edge' },
-  startUrls: ['https://project.example'],
+    });
+
+    const config = await resolveProjectConfig({
+      cwd: root,
+      homeDir: path.join(root, 'home'),
+    });
+
+    expect(config.webExt).toEqual({
+      disabled: false,
+      binaries: {
+        chrome: '/config/chrome',
+        firefox: '/config/firefox',
+      },
+      chromiumArgs: ['--config'],
+      firefoxArgs: [],
+      chromiumProfile: null,
+      firefoxProfile: null,
+      keepProfileChanges: true,
+      startUrls: ['https://global.example'],
+    });
+  });
+
+  it('uses only the webExt field from the global config', async () => {
+    const root = createProject({
+      'home/.addonova/addonova.config.ts': `export default {
+  browsers: ['firefox'],
+  webExt: { disabled: true },
+};
+`,
+      'addonova.config.ts': `export default {
+  browsers: ['chrome'],
 };
 `,
     });
@@ -68,20 +96,27 @@ describe('web-ext configuration', () => {
       homeDir: path.join(root, 'home'),
     });
 
-    expect(config.webExt).toEqual({
-      disabled: true,
-      binaries: {
-        chrome: '/config/chrome',
-        firefox: '/config/firefox',
-        edge: '/project/edge',
-      },
-      chromiumArgs: ['--config'],
-      firefoxArgs: [],
-      chromiumProfile: null,
-      firefoxProfile: null,
-      keepProfileChanges: true,
-      startUrls: ['https://project.example'],
+    expect(config.browsers.map((browser) => browser.target)).toEqual([
+      'chrome',
+    ]);
+    expect(config.webExt.disabled).toBe(true);
+  });
+
+  it('ignores legacy project web-ext config files', async () => {
+    const root = createProject({
+      'web-ext.config.ts': `export default {
+  disabled: true,
+  startUrls: ['https://legacy.example'],
+};
+`,
     });
+
+    const config = await resolveProjectConfig({
+      cwd: root,
+      homeDir: path.join(root, 'home'),
+    });
+
+    expect(config.webExt).toEqual(createDefaultWebExtConfig());
   });
 
   it('merges binary maps without replacing unrelated targets', () => {
@@ -111,13 +146,7 @@ describe('web-ext configuration', () => {
     });
   });
 
-  it('preserves defineWebExtConfig input', () => {
-    const input = { disabled: true, binaries: { chrome: '/chrome' } };
-
-    expect(defineWebExtConfig(input)).toBe(input);
-  });
-
-  it('rejects invalid web-ext options', async () => {
+  it('rejects invalid webExt options', async () => {
     const root = createProject({
       'addonova.config.ts': `export default {
   webExt: { disabled: 'yes' },
@@ -153,9 +182,9 @@ describe('web-ext configuration', () => {
     );
   });
 
-  it('reports project web-ext config load failures', async () => {
+  it('reports global config load failures', async () => {
     const root = createProject({
-      'web-ext.config.ts': 'export default {',
+      'home/.addonova/addonova.config.ts': 'export default {',
     });
 
     await expectError(
@@ -164,13 +193,13 @@ describe('web-ext configuration', () => {
           cwd: root,
           homeDir: path.join(root, 'home'),
         }),
-      'ADDONOVA_WEB_EXT_CONFIG_LOAD_FAILED',
+      'ADDONOVA_CONFIG_LOAD_FAILED',
     );
   });
 });
 
 function createProject(files: Readonly<Record<string, string>>): string {
-  const root = mkdtempSync(path.join(tmpdir(), 'addonova-web-ext-'));
+  const root = mkdtempSync(path.join(tmpdir(), 'addonova-launcher-config-'));
   tempDirs.push(root);
 
   for (const [relativePath, contents] of Object.entries(files)) {
