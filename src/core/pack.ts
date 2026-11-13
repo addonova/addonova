@@ -4,6 +4,7 @@ import path from 'node:path';
 import { pack as guchhoPack } from 'guchho';
 import type { PackOptions, PackResult as GuchhoPackResult } from 'guchho';
 
+import { resolveManifestObject } from '../browser/manifest.ts';
 import type { ResolvedBrowser, ResolvedConfig } from './config.ts';
 import { getOutputDirectory } from './build.ts';
 import { AddonovaError } from './errors.ts';
@@ -150,18 +151,16 @@ function getManifestVersion(
   config: ResolvedConfig,
   browser: ResolvedBrowser,
 ): string {
-  const browserVersion = browser.manifestOverrides.version;
-  const baseVersion = config.manifest.version;
+  const manifest = resolveManifestObject(config.manifest, browser, {
+    mode: config.mode,
+    command: 'pack',
+    defaults: config.manifestDefaults,
+  });
+  const version = manifest.version;
 
-  if (typeof browserVersion === 'string' && browserVersion.trim() !== '') {
-    return browserVersion;
-  }
-
-  if (typeof baseVersion === 'string' && baseVersion.trim() !== '') {
-    return baseVersion;
-  }
-
-  return '0.0.0';
+  return typeof version === 'string' && version.trim() !== ''
+    ? version
+    : '0.0.0';
 }
 
 function sanitizeArchiveName(value: string): string {

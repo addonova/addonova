@@ -1,3 +1,4 @@
+import { resolveManifestObject } from '../../browser/manifest.ts';
 import { BROWSER_TARGETS } from '../../core/types.ts';
 import type { SourcemapOption } from '../../core/types.ts';
 import type { CommandContext } from '../command.ts';
@@ -6,8 +7,17 @@ import { getCliStyle } from '../style.ts';
 export function infoCommand(context: CommandContext): number {
   const { config } = context;
   const style = getCliStyle(context.io);
-  const manifestName = config.manifest.name;
-  const manifestVersion = config.manifest.version;
+  const firstBrowser = config.browsers[0];
+  const manifest =
+    firstBrowser === undefined
+      ? {}
+      : resolveManifestObject(config.manifest, firstBrowser, {
+          mode: config.mode,
+          command: 'info',
+          defaults: config.manifestDefaults,
+        });
+  const manifestName = manifest.name;
+  const manifestVersion = manifest.version;
   const entries: Array<[string, string]> = [
     ['Config', config.configPath ?? 'none (using defaults)'],
     ['Project root', config.root],

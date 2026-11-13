@@ -11,6 +11,19 @@ import { validatePlugins } from '../plugins/manager.ts';
 import type { AddonovaPlugin } from '../plugins/types.ts';
 import { AddonovaError } from './errors.ts';
 import {
+  deriveEntrypointName,
+  describeEntrypoint,
+  detectEntrypointKind,
+  discoverEntrypoints,
+  isEntrypointType,
+} from './entrypoints.ts';
+import type {
+  EntrypointManifestOptions,
+  EntrypointType,
+} from './entrypoints.ts';
+import { readPackageInfo, toManifestDefaults } from './package.ts';
+import type { ManifestDefaults } from './package.ts';
+import {
   BROWSER_TARGETS,
   DEFAULT_BROWSER,
   DEFAULT_MANIFEST_VERSION,
@@ -38,14 +51,34 @@ export const CONFIG_FILENAMES = [
   'addonova.config.json',
 ] as const;
 
+export interface EntrypointConfigInput {
+  input: string;
+  include?: readonly BrowserTarget[];
+  exclude?: readonly BrowserTarget[];
+  type?: EntrypointType;
+}
+
 export type EntrypointsInput =
   | string
   | readonly string[]
-  | Readonly<Record<string, string>>;
+  | Readonly<Record<string, string | EntrypointConfigInput>>;
 
 export type BrowserOverridesInput = Partial<
   Record<BrowserTarget, Readonly<Record<string, unknown>>>
 >;
+
+export interface ManifestContext {
+  browser: BrowserTarget;
+  manifestVersion: ManifestVersion;
+  mode: BuildMode;
+  command: string;
+}
+
+export type ManifestInput =
+  | Readonly<Record<string, unknown>>
+  | ((
+      context: ManifestContext,
+    ) => Readonly<Record<string, unknown>>);
 
 export interface AddonovaPackConfig {
   outFile?: string;
@@ -70,7 +103,10 @@ export interface ResolvedBrowserApiConfig {
 export interface AddonovaUserConfig {
   entrypoints?: EntrypointsInput;
   browsers?: readonly BrowserTarget[] | BrowserOverridesInput;
-  manifest?: Readonly<Record<string, unknown>>;
+  manifest?: ManifestInput;
+  srcDir?: string;
+  entrypointsDir?: string;
+  convertManifest?: boolean;
   outdir?: string;
   publicDir?: string;
   minify?: boolean;
@@ -85,6 +121,9 @@ export interface ResolvedEntrypoint {
   name: string;
   input: string;
   kind: EntrypointKind;
+  type?: EntrypointType;
+  manifestOptions?: EntrypointManifestOptions;
+  discovered?: true;
 }
 
 export interface ResolvedBrowser {
@@ -106,7 +145,11 @@ export interface ResolvedConfig {
   configPath: string | null;
   entrypoints: readonly ResolvedEntrypoint[];
   browsers: readonly ResolvedBrowser[];
-  manifest: Readonly<Record<string, unknown>>;
+  manifest: ManifestInput;
+  manifestDefaults?: ManifestDefaults;
+  srcDir?: string;
+  entrypointsDir?: string;
+  convertManifest?: boolean;
   outdir: string;
   publicDir: string;
   mode: BuildMode;
@@ -125,6 +168,7 @@ export interface ConfigOverrides {
   minify?: boolean;
   sourcemap?: SourcemapOption;
   browserApi?: BrowserApiMode;
+  convertManifest?: boolean;
 }
 
 export interface NormalizeConfigOptions {
@@ -140,17 +184,6 @@ export interface ResolveProjectConfigOptions {
   overrides?: ConfigOverrides;
   defaultMode?: BuildMode;
 }
-
-const SCRIPT_EXTENSIONS = new Set([
-  '.js',
-  '.jsx',
-  '.mjs',
-  '.cjs',
-  '.ts',
-  '.tsx',
-  '.mts',
-  '.cts',
-]);
 
 export function defineConfig<T extends AddonovaUserConfig>(config: T): T {
   return config;
@@ -261,15 +294,37 @@ export function normalizeConfig(
   const overrides = options.overrides ?? {};
   const manifest = normalizeManifest(userConfig.manifest, configPath);
   const mode = overrides.mode ?? userConfig.mode ?? options.defaultMode ?? 'production';
+  const srcDir = userConfig.srcDir ?? 'src';
+  const entrypointsDir = userConfig.entrypointsDir ?? 'entrypoints';
+  const manifestVersionHint = readManifestVersionHint(manifest, mode);
+  const packageInfo = readPackageInfo(root);
 
   validateConfigValues(userConfig, configPath);
 
   return {
     root,
     configPath,
-    entrypoints: normalizeEntrypoints(userConfig.entrypoints, root, configPath),
-    browsers: normalizeBrowsers(userConfig.browsers, manifest, overrides, configPath),
+    entrypoints: normalizeEntrypoints(
+      userConfig.entrypoints,
+      root,
+      srcDir,
+      entrypointsDir,
+      configPath,
+    ),
+    browsers: normalizeBrowsers(
+      userConfig.browsers,
+      manifestVersionHint,
+      overrides,
+      configPath,
+    ),
     manifest,
+    ...(packageInfo.name === undefined && packageInfo.version === undefined
+      ? {}
+      : { manifestDefaults: toManifestDefaults(packageInfo) }),
+    srcDir,
+    entrypointsDir,
+    convertManifest:
+      overrides.convertManifest ?? userConfig.convertManifest ?? true,
     outdir:
       overrides.outdir === undefined
         ? path.resolve(root, userConfig.outdir ?? 'dist')
@@ -309,6 +364,39 @@ function validateConfigValues(config: AddonovaUserConfig, configPath: string | n
       'ADDONOVA_CONFIG_INVALID',
       'Config "publicDir" must be a non-empty string.',
       'Use a directory path such as "public".',
+      configPath,
+    );
+  }
+
+  if (config.srcDir !== undefined && !isNonEmptyString(config.srcDir)) {
+    throw configError(
+      'ADDONOVA_CONFIG_INVALID',
+      'Config "srcDir" must be a non-empty string.',
+      'Use a directory path such as "src".',
+      configPath,
+    );
+  }
+
+  if (
+    config.entrypointsDir !== undefined &&
+    !isNonEmptyString(config.entrypointsDir)
+  ) {
+    throw configError(
+      'ADDONOVA_CONFIG_INVALID',
+      'Config "entrypointsDir" must be a non-empty string.',
+      'Use a directory path such as "entrypoints".',
+      configPath,
+    );
+  }
+
+  if (
+    config.convertManifest !== undefined &&
+    typeof config.convertManifest !== 'boolean'
+  ) {
+    throw configError(
+      'ADDONOVA_CONFIG_INVALID',
+      'Config "convertManifest" must be true or false.',
+      'Use a boolean value.',
       configPath,
     );
   }
@@ -505,18 +593,22 @@ function normalizePack(
 }
 
 function normalizeManifest(
-  rawManifest: Readonly<Record<string, unknown>> | undefined,
+  rawManifest: ManifestInput | undefined,
   configPath: string | null,
-): Readonly<Record<string, unknown>> {
+): ManifestInput {
   if (rawManifest === undefined) {
     return {};
+  }
+
+  if (typeof rawManifest === 'function') {
+    return rawManifest;
   }
 
   if (!isPlainObject(rawManifest)) {
     throw configError(
       'ADDONOVA_CONFIG_MANIFEST',
-      'Config "manifest" must be an object.',
-      'Provide a manifest object with fields such as name and version.',
+      'Config "manifest" must be an object or a function.',
+      'Provide a manifest object or a function that receives the build context.',
       configPath,
     );
   }
@@ -551,7 +643,7 @@ function normalizeManifest(
 
 function normalizeBrowsers(
   rawBrowsers: AddonovaUserConfig['browsers'],
-  manifest: Readonly<Record<string, unknown>>,
+  manifestVersionHint: ManifestVersion | undefined,
   overrides: ConfigOverrides,
   configPath: string | null,
 ): readonly ResolvedBrowser[] {
@@ -602,10 +694,7 @@ function normalizeBrowsers(
     targetNames = normalizeBrowserList(overrides.browsers, null);
   }
 
-  const baseManifestVersion = manifest.manifest_version;
-  const defaultManifestVersion = isManifestVersion(baseManifestVersion)
-    ? baseManifestVersion
-    : undefined;
+  const defaultManifestVersion = manifestVersionHint;
 
   return targetNames.map((target) => {
     const rawOverride = overrideMap[target] ?? {};
@@ -715,11 +804,21 @@ function normalizeBrowserList(
 function normalizeEntrypoints(
   rawEntrypoints: EntrypointsInput | undefined,
   root: string,
+  srcDir: string,
+  entrypointsDir: string,
   configPath: string | null,
 ): readonly ResolvedEntrypoint[] {
   const entrypoints: ResolvedEntrypoint[] = [];
 
-  const addEntrypoint = (name: string, input: string): void => {
+  const addEntrypoint = (
+    name: string,
+    input: string,
+    selection: {
+      include?: readonly BrowserTarget[];
+      exclude?: readonly BrowserTarget[];
+      type?: EntrypointType;
+    } = {},
+  ): void => {
     if (!isNonEmptyString(name) || name.includes('/') || name.includes('\\')) {
       throw configError(
         'ADDONOVA_CONFIG_ENTRYPOINTS',
@@ -747,7 +846,20 @@ function normalizeEntrypoints(
       );
     }
 
+    assertBrowserSelection(selection.include, `${name}.include`, configPath);
+    assertBrowserSelection(selection.exclude, `${name}.exclude`, configPath);
+
+    if (selection.type !== undefined && !isEntrypointType(selection.type)) {
+      throw configError(
+        'ADDONOVA_CONFIG_ENTRYPOINTS',
+        `Entrypoint "${name}" has an unknown type "${String(selection.type)}".`,
+        'Use a supported entrypoint type such as background, content-script, or popup.',
+        configPath,
+      );
+    }
+
     const absoluteInput = path.resolve(root, input);
+    const kind = detectEntrypointKind(input);
 
     if (!isFile(absoluteInput)) {
       throw configError(
@@ -758,14 +870,40 @@ function normalizeEntrypoints(
       );
     }
 
-    entrypoints.push({
+    const descriptor = describeEntrypoint(
       name,
-      input: absoluteInput,
-      kind: detectEntrypointKind(input),
-    });
+      absoluteInput,
+      kind,
+      selection,
+    );
+
+    entrypoints.push(
+      toResolvedEntrypoint(
+        descriptor,
+        selection.type !== undefined ||
+          Object.keys(descriptor.manifestOptions).length > 0,
+      ),
+    );
   };
 
   if (rawEntrypoints === undefined) {
+    for (const entrypoint of discoverEntrypoints({
+      root,
+      srcDir,
+      entrypointsDir,
+    })) {
+      if (entrypoints.some((existing) => existing.name === entrypoint.name)) {
+        throw configError(
+          'ADDONOVA_CONFIG_DUPLICATE_ENTRYPOINT',
+          `Duplicate entrypoint name "${entrypoint.name}".`,
+          'Give every entrypoint a unique name.',
+          configPath,
+        );
+      }
+
+      entrypoints.push(toResolvedEntrypoint(entrypoint, true));
+    }
+
     return entrypoints;
   }
 
@@ -792,17 +930,43 @@ function normalizeEntrypoints(
   }
 
   if (isPlainObject(rawEntrypoints)) {
-    for (const [name, input] of Object.entries(rawEntrypoints)) {
-      if (typeof input !== 'string') {
+    for (const [name, value] of Object.entries(rawEntrypoints)) {
+      if (typeof value === 'string') {
+        addEntrypoint(name, value);
+        continue;
+      }
+
+      if (!isPlainObject(value)) {
         throw configError(
           'ADDONOVA_CONFIG_ENTRYPOINTS',
-          `Entrypoint "${name}" must be a string path.`,
-          'Use an object of name-to-path values.',
+          `Entrypoint "${name}" must be a string path or an object.`,
+          'Use an object with an "input" field and optional include, exclude, or type.',
           configPath,
         );
       }
 
-      addEntrypoint(name, input);
+      const input = value.input;
+
+      if (typeof input !== 'string') {
+        throw configError(
+          'ADDONOVA_CONFIG_ENTRYPOINTS',
+          `Entrypoint "${name}" must include a string "input" path.`,
+          'Use { input: "src/popup.html", type: "popup" }.',
+          configPath,
+        );
+      }
+
+      addEntrypoint(name, input, {
+        ...(value.include === undefined
+          ? {}
+          : { include: value.include as readonly BrowserTarget[] }),
+        ...(value.exclude === undefined
+          ? {}
+          : { exclude: value.exclude as readonly BrowserTarget[] }),
+        ...(value.type === undefined
+          ? {}
+          : { type: value.type as EntrypointType }),
+      });
     }
 
     return entrypoints;
@@ -816,33 +980,76 @@ function normalizeEntrypoints(
   );
 }
 
-function deriveEntrypointName(input: string): string {
-  const normalized = input.replaceAll('\\', '/');
-  const parsed = path.posix.parse(normalized);
+function toResolvedEntrypoint(
+  entrypoint: {
+    name: string;
+    input: string;
+    kind: EntrypointKind;
+    type: EntrypointType;
+    manifestOptions: EntrypointManifestOptions;
+    discovered?: true;
+  },
+  includeMetadata: boolean,
+): ResolvedEntrypoint {
+  const resolved: ResolvedEntrypoint = {
+    name: entrypoint.name,
+    input: entrypoint.input,
+    kind: entrypoint.kind,
+  };
 
-  if (parsed.name === 'index' && parsed.dir !== '') {
-    return path.posix.basename(parsed.dir);
+  if (includeMetadata) {
+    resolved.type = entrypoint.type;
+    resolved.manifestOptions = entrypoint.manifestOptions;
   }
 
-  return parsed.name;
+  if (entrypoint.discovered === true) {
+    resolved.discovered = true;
+  }
+
+  return resolved;
 }
 
-function detectEntrypointKind(input: string): EntrypointKind {
-  const extension = path.extname(input).toLowerCase();
-
-  if (extension === '.html' || extension === '.htm') {
-    return 'html';
+function assertBrowserSelection(
+  selection: readonly BrowserTarget[] | undefined,
+  field: string,
+  configPath: string | null,
+): void {
+  if (selection === undefined) {
+    return;
   }
 
-  if (extension === '.css') {
-    return 'style';
+  if (!Array.isArray(selection)) {
+    throw configError(
+      'ADDONOVA_CONFIG_ENTRYPOINTS',
+      `Entrypoint "${field}" must be an array of browser targets.`,
+      `Use one of: ${BROWSER_TARGETS.join(', ')}.`,
+      configPath,
+    );
   }
 
-  if (SCRIPT_EXTENSIONS.has(extension)) {
-    return 'script';
+  for (const target of selection) {
+    if (!isBrowserTarget(target)) {
+      throw configError(
+        'ADDONOVA_CONFIG_ENTRYPOINTS',
+        `Entrypoint "${field}" contains an unknown browser target "${String(target)}".`,
+        `Use one of: ${BROWSER_TARGETS.join(', ')}.`,
+        configPath,
+      );
+    }
+  }
+}
+
+function readManifestVersionHint(
+  manifest: ManifestInput,
+  _mode: BuildMode,
+): ManifestVersion | undefined {
+  if (typeof manifest === 'function') {
+    return undefined;
   }
 
-  return 'asset';
+  return isManifestVersion(manifest.manifest_version)
+    ? manifest.manifest_version
+    : undefined;
 }
 
 function isFile(filePath: string): boolean {

@@ -7,6 +7,21 @@ All notable changes to `addonova` are documented here.
 
 ### Added
 
+- File-based entrypoint discovery under `src/entrypoints/`, including
+  background, content scripts, HTML pages, styles, and assets.
+- `defineBackground`, `defineContentScript`, `defineUnlistedScript`,
+  `definePage`, and content script context helpers through the `addonova/defines`
+  subpath.
+- Manifest synthesis for background, content scripts and CSS, popup, options,
+  side panel, devtools, sandbox, and URL overrides.
+- Manifest functions with a per-target context, `package.json` name/version
+  defaults, prerelease `version_name` handling, and icon auto-discovery.
+- Dotenv loading with `import.meta.env` defines for mode, browser, manifest
+  version, `ADDONOVA_*`, and `VITE_*` variables.
+- Automatic MV2/MV3 conversion for action, host permissions, background, and web
+  accessible resources, with an opt-out `convertManifest` setting.
+- `srcDir`, `entrypointsDir`, and per-entrypoint browser `include`/`exclude`
+  configuration.
 - `addonova init [directory]` command that scaffolds a working extension
   without loading a project configuration.
 - Bundled `vanilla-ts`, `vanilla-js`, and `react` templates, plus the `vanilla`
@@ -20,6 +35,11 @@ All notable changes to `addonova` are documented here.
   exported from the public API.
 - Unit and integration coverage for scaffolding, generated project builds, and
   git handling.
+
+### Changed
+
+- Bundled templates now use convention-based `src/entrypoints/` layouts and
+  `define*` helpers instead of explicit entrypoint configuration.
 
 ### Fixed
 

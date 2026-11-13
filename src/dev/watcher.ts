@@ -25,6 +25,7 @@ import {
 import { CONFIG_FILENAMES } from '../core/config.ts';
 import type { ResolvedBrowser, ResolvedConfig } from '../core/config.ts';
 import { AddonovaError, toDiagnostic } from '../core/errors.ts';
+import { collectContentScriptCss } from '../browser/content-css.ts';
 import { buildManifest, writeManifest } from '../browser/manifest.ts';
 import {
   createPluginManager,
@@ -151,6 +152,10 @@ export function classifyChange(file: string, config: ResolvedConfig): ChangeKind
 
   if (fileName === 'manifest.json') {
     return 'manifest';
+  }
+
+  if (fileName === '.env' || fileName.startsWith('.env.')) {
+    return 'config';
   }
 
   if (
@@ -571,6 +576,18 @@ export class DevSession {
       const builtManifest = buildManifest(this.config.manifest, target.browser, {
         checkFiles: true,
         availableFiles,
+        mode: this.config.mode,
+        command: 'dev',
+        defaults: this.config.manifestDefaults,
+        entrypoints: this.config.entrypoints,
+        convertManifest: this.config.convertManifest,
+        iconDir: target.staging,
+        contentScriptCss: collectContentScriptCss({
+          config: this.config,
+          browser: target.browser.target,
+          outdir: target.staging,
+          metafile: result.metafile,
+        }),
       });
 
       for (const diagnostic of builtManifest.diagnostics) {

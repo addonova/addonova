@@ -30,12 +30,44 @@ export type {
   AddonovaBrowserApiConfig,
   AddonovaPackConfig,
   AddonovaUserConfig,
+  BrowserOverridesInput,
+  ConfigOverrides,
+  EntrypointConfigInput,
+  EntrypointsInput,
+  ManifestContext,
+  ManifestInput,
   ResolvedBrowser,
   ResolvedBrowserApiConfig,
   ResolvedConfig,
   ResolvedEntrypoint,
   ResolvedPackConfig,
 } from './core/config.ts';
+export {
+  ENTRYPOINT_TYPES,
+  detectEntrypointKind,
+  discoverEntrypoints,
+  inferEntrypointType,
+  isEntrypointForBrowser,
+  isEntrypointType,
+} from './core/entrypoints.ts';
+export type {
+  DiscoverEntrypointsOptions,
+  DiscoveredEntrypoint,
+  EntrypointManifestOptions,
+  EntrypointSelection,
+  EntrypointType,
+} from './core/entrypoints.ts';
+export type {
+  BackgroundDefinition,
+  ContentScriptContext,
+  ContentScriptDefinition,
+  ContentScriptWorld,
+  CssInjectionMode,
+  PageDefinition,
+  RunAt,
+  UnlistedScriptDefinition,
+} from './core/defines.ts';
+export type { ManifestDefaults, PackageInfo } from './core/package.ts';
 export {
   buildProject,
   copyPublicDirectory,
@@ -85,12 +117,15 @@ export type {
 } from './core/pack.ts';
 export {
   buildManifest,
+  resolveManifestObject,
   writeManifest,
 } from './browser/manifest.ts';
 export type {
   BuildManifestOptions,
   BuiltManifest,
 } from './browser/manifest.ts';
+export { loadBuildEnv, toImportMetaEnvDefines } from './core/env.ts';
+export type { BuildEnv, LoadBuildEnvOptions } from './core/env.ts';
 export {
   BROWSER_TARGET_INFO,
   getBrowserTargetInfo,

@@ -5,15 +5,35 @@ import {
 } from 'node:fs';
 import path from 'node:path';
 
-import type { ResolvedBrowser } from '../core/config.ts';
+import type {
+  ManifestContext,
+  ManifestInput,
+  ResolvedBrowser,
+  ResolvedEntrypoint,
+} from '../core/config.ts';
 import type { Diagnostic } from '../core/errors.ts';
+import {
+  inferEntrypointType,
+  isEntrypointForBrowser,
+} from '../core/entrypoints.ts';
+import type { ManifestDefaults } from '../core/package.ts';
+import { applyManifestDefaults } from '../core/package.ts';
 import { collectCompatibilityDiagnostics } from './compatibility.ts';
+import { convertManifest } from './convert.ts';
+import { discoverIcons } from './icons.ts';
 import { getBrowserTargetInfo } from './targets.ts';
 
 export interface BuildManifestOptions {
   outdir?: string;
   checkFiles?: boolean;
   availableFiles?: Iterable<string>;
+  mode?: 'development' | 'production';
+  command?: string;
+  defaults?: ManifestDefaults | undefined;
+  entrypoints?: readonly ResolvedEntrypoint[];
+  convertManifest?: boolean | undefined;
+  iconDir?: string;
+  contentScriptCss?: ReadonlyMap<string, readonly string[]>;
 }
 
 export interface BuiltManifest {
@@ -28,17 +48,38 @@ interface FileReference {
 }
 
 export function buildManifest(
-  baseManifest: Readonly<Record<string, unknown>>,
+  baseManifest: ManifestInput,
   browser: ResolvedBrowser,
   options: BuildManifestOptions = {},
 ): BuiltManifest {
-  const manifest: Record<string, unknown> = mergeManifest(
-    baseManifest,
-    browser.manifestOverrides,
-  );
+  const manifest = resolveManifestObject(baseManifest, browser, options);
+  const entrypointDiagnostics =
+    options.entrypoints === undefined
+      ? []
+      : applyEntrypointManifest(manifest, browser, options);
+  const iconDiagnostics =
+    options.iconDir === undefined
+      ? []
+      : applyDiscoveredIcons(manifest, options.iconDir);
+  const conversionDiagnostics =
+    options.convertManifest === true
+      ? convertManifest(manifest, browser.manifestVersion, browser.target).map(
+          (conversion): Diagnostic => ({
+            code: 'ADDONOVA_MANIFEST_CONVERTED',
+            severity: 'warning',
+            message: conversion.message,
+            suggestion:
+              'Set convertManifest: false to manage manifest fields manually.',
+          }),
+        )
+      : [];
+
   manifest.manifest_version = browser.manifestVersion;
   const target = getBrowserTargetInfo(browser.target);
   const diagnostics: Diagnostic[] = [
+    ...conversionDiagnostics,
+    ...entrypointDiagnostics,
+    ...iconDiagnostics,
     ...collectCompatibilityDiagnostics(manifest, browser, target),
     ...validateManifestStructure(manifest),
   ];
@@ -68,6 +109,512 @@ export function buildManifest(
     diagnostics,
     hasErrors: diagnostics.some((diagnostic) => diagnostic.severity === 'error'),
   };
+}
+
+export function resolveManifestObject(
+  input: ManifestInput,
+  browser: ResolvedBrowser,
+  options: BuildManifestOptions = {},
+): Record<string, unknown> {
+  const context = createManifestContext(browser, options);
+  let resolved: Readonly<Record<string, unknown>>;
+
+  if (typeof input === 'function') {
+    const value = input(context);
+
+    if (!isRecord(value)) {
+      throw new Error(
+        'The manifest function must return a manifest object.',
+      );
+    }
+
+    resolved = value;
+  } else {
+    resolved = input;
+  }
+
+  let manifest = mergeManifest({}, resolved);
+
+  if (options.defaults !== undefined) {
+    manifest = applyManifestDefaults(manifest, options.defaults);
+  }
+
+  return mergeManifest(manifest, browser.manifestOverrides);
+}
+
+function createManifestContext(
+  browser: ResolvedBrowser,
+  options: BuildManifestOptions,
+): ManifestContext {
+  return {
+    browser: browser.target,
+    manifestVersion: browser.manifestVersion,
+    mode: options.mode ?? 'production',
+    command: options.command ?? 'build',
+  };
+}
+
+function applyEntrypointManifest(
+  manifest: Record<string, unknown>,
+  browser: ResolvedBrowser,
+  options: BuildManifestOptions,
+): readonly Diagnostic[] {
+  const diagnostics: Diagnostic[] = [];
+  const entrypoints = (options.entrypoints ?? []).filter((entrypoint) =>
+    isEntrypointForBrowser(entrypoint, browser.target),
+  );
+
+  applyBackgroundEntrypoint(manifest, browser, entrypoints);
+  applyContentScriptEntrypoints(
+    manifest,
+    browser,
+    entrypoints,
+    options,
+    diagnostics,
+  );
+  applyPopupEntrypoint(manifest, browser, entrypoints);
+  applyOptionsEntrypoint(manifest, entrypoints);
+  applySidepanelEntrypoint(manifest, browser, entrypoints, diagnostics);
+  applyDevtoolsEntrypoint(manifest, entrypoints);
+  applyOverrideEntrypoints(manifest, entrypoints, diagnostics);
+  applySandboxEntrypoints(manifest, entrypoints);
+
+  return diagnostics;
+}
+
+function applyBackgroundEntrypoint(
+  manifest: Record<string, unknown>,
+  browser: ResolvedBrowser,
+  entrypoints: readonly ResolvedEntrypoint[],
+): void {
+  if (manifest.background !== undefined) {
+    return;
+  }
+
+  const background = entrypoints.find(
+    (entrypoint) => getEntrypointType(entrypoint) === 'background',
+  );
+
+  if (background === undefined) {
+    return;
+  }
+
+  const output = getEntrypointOutputPath(background);
+
+  manifest.background =
+    browser.manifestVersion === 2
+      ? { scripts: [output] }
+      : { service_worker: output };
+}
+
+function applyContentScriptEntrypoints(
+  manifest: Record<string, unknown>,
+  browser: ResolvedBrowser,
+  entrypoints: readonly ResolvedEntrypoint[],
+  options: BuildManifestOptions,
+  diagnostics: Diagnostic[],
+): void {
+  const contentScripts = entrypoints.filter(
+    (entrypoint) =>
+      getEntrypointType(entrypoint) === 'content-script' &&
+      entrypoint.manifestOptions?.registration !== 'runtime',
+  );
+  const contentStyles = entrypoints.filter(
+    (entrypoint) => getEntrypointType(entrypoint) === 'content-style',
+  );
+  const pairedStyles = new Set<string>();
+
+  for (const entrypoint of contentScripts) {
+    const output = getEntrypointOutputPath(entrypoint);
+    const existing = getContentScriptEntries(manifest);
+
+    if (existing === null) {
+      continue;
+    }
+
+    if (
+      existing.some(
+        (entry) => isRecord(entry) && asStringArray(entry.js).includes(output),
+      )
+    ) {
+      continue;
+    }
+
+    const matches = entrypoint.manifestOptions?.matches;
+
+    if (matches === undefined || matches.length === 0) {
+      if (entrypoint.discovered === true) {
+        diagnostics.push({
+          code: 'ADDONOVA_MANIFEST_CONTENT_SCRIPT_MATCHES',
+          severity: 'error',
+          message: `Content script "${entrypoint.name}" does not declare any match patterns.`,
+          location: { file: entrypoint.input },
+          suggestion:
+            'Pass matches to defineContentScript() or add a content_scripts entry to manifest.',
+        });
+      }
+
+      continue;
+    }
+
+    const entry: Record<string, unknown> = {
+      matches: [...matches],
+      js: [output],
+    };
+    applyContentScriptOptions(entry, entrypoint, browser, diagnostics);
+    const importedCss = options.contentScriptCss?.get(entrypoint.name);
+
+    if (importedCss !== undefined && importedCss.length > 0) {
+      entry.css = [...importedCss];
+    }
+
+    const style = contentStyles.find(
+      (candidate) => candidate.name === entrypoint.name,
+    );
+
+    if (style !== undefined) {
+      pairedStyles.add(style.name);
+      entry.css = [
+        ...asStringArray(entry.css),
+        getEntrypointOutputPath(style),
+      ];
+    }
+
+    existing.push(entry);
+  }
+
+  for (const entrypoint of contentStyles) {
+    if (pairedStyles.has(entrypoint.name)) {
+      continue;
+    }
+
+    const matches = entrypoint.manifestOptions?.matches;
+
+    if (matches === undefined || matches.length === 0) {
+      continue;
+    }
+
+    const existing = getContentScriptEntries(manifest);
+
+    if (existing === null) {
+      continue;
+    }
+
+    const output = getEntrypointOutputPath(entrypoint);
+
+    if (
+      existing.some(
+        (entry) =>
+          isRecord(entry) && asStringArray(entry.css).includes(output),
+      )
+    ) {
+      continue;
+    }
+
+    existing.push({
+      matches: [...matches],
+      css: [output],
+    });
+  }
+}
+
+function applyContentScriptOptions(
+  entry: Record<string, unknown>,
+  entrypoint: ResolvedEntrypoint,
+  browser: ResolvedBrowser,
+  diagnostics: Diagnostic[],
+): void {
+  const options = entrypoint.manifestOptions ?? {};
+  const mappings: ReadonlyArray<
+    [
+      keyof typeof options,
+      string,
+    ]
+  > = [
+    ['excludeMatches', 'exclude_matches'],
+    ['includeGlobs', 'include_globs'],
+    ['excludeGlobs', 'exclude_globs'],
+    ['allFrames', 'all_frames'],
+    ['runAt', 'run_at'],
+    ['matchAboutBlank', 'match_about_blank'],
+    ['matchOriginAsFallback', 'match_origin_as_fallback'],
+  ];
+
+  for (const [source, target] of mappings) {
+    const value = options[source];
+
+    if (value !== undefined) {
+      entry[target] = value;
+    }
+  }
+
+  if (options.world !== undefined) {
+    if (browser.manifestVersion === 3) {
+      entry.world = options.world;
+    } else {
+      diagnostics.push({
+        code: 'ADDONOVA_MANIFEST_CONTENT_SCRIPT_WORLD',
+        severity: 'warning',
+        message: `Content script "${entrypoint.name}" uses world "${options.world}", which requires Manifest V3.`,
+        location: { file: entrypoint.input },
+        suggestion: 'Remove the world option or build for Manifest V3.',
+      });
+    }
+  }
+}
+
+function applyPopupEntrypoint(
+  manifest: Record<string, unknown>,
+  browser: ResolvedBrowser,
+  entrypoints: readonly ResolvedEntrypoint[],
+): void {
+  const popup = entrypoints.find(
+    (entrypoint) => getEntrypointType(entrypoint) === 'popup',
+  );
+
+  if (popup === undefined) {
+    return;
+  }
+
+  const declaredType = popup.manifestOptions?.type;
+  let actionKey: string;
+
+  if (declaredType === 'page_action') {
+    actionKey = 'page_action';
+  } else if (declaredType === 'browser_action') {
+    actionKey = 'browser_action';
+  } else if (isRecord(manifest.action)) {
+    actionKey = 'action';
+  } else if (isRecord(manifest.browser_action)) {
+    actionKey = 'browser_action';
+  } else if (
+    browser.manifestVersion === 2 &&
+    isRecord(manifest.page_action)
+  ) {
+    actionKey = 'page_action';
+  } else {
+    actionKey = 'action';
+  }
+
+  const action = ensureRecord(manifest, actionKey);
+
+  if (action.default_popup === undefined) {
+    action.default_popup = getEntrypointOutputPath(popup);
+  }
+}
+
+function applyOptionsEntrypoint(
+  manifest: Record<string, unknown>,
+  entrypoints: readonly ResolvedEntrypoint[],
+): void {
+  const options = entrypoints.find(
+    (entrypoint) => getEntrypointType(entrypoint) === 'options',
+  );
+
+  if (options === undefined || manifest.options_page !== undefined) {
+    return;
+  }
+
+  const optionsUi = ensureRecord(manifest, 'options_ui');
+
+  if (optionsUi.page === undefined) {
+    optionsUi.page = getEntrypointOutputPath(options);
+  }
+}
+
+function applySidepanelEntrypoint(
+  manifest: Record<string, unknown>,
+  browser: ResolvedBrowser,
+  entrypoints: readonly ResolvedEntrypoint[],
+  diagnostics: Diagnostic[],
+): void {
+  const sidepanel = entrypoints.find(
+    (entrypoint) => getEntrypointType(entrypoint) === 'sidepanel',
+  );
+
+  if (sidepanel === undefined) {
+    return;
+  }
+
+  const output = getEntrypointOutputPath(sidepanel);
+
+  if (browser.target === 'firefox') {
+    const sidebar = ensureRecord(manifest, 'sidebar_action');
+
+    if (sidebar.default_panel === undefined) {
+      sidebar.default_panel = output;
+    }
+
+    return;
+  }
+
+  if (browser.manifestVersion === 3) {
+    const panel = ensureRecord(manifest, 'side_panel');
+
+    if (panel.default_path === undefined) {
+      panel.default_path = output;
+    }
+
+    return;
+  }
+
+  diagnostics.push({
+    code: 'ADDONOVA_MANIFEST_SIDEPANEL_UNSUPPORTED',
+    severity: 'warning',
+    message: `Side panel entrypoint "${sidepanel.name}" is not supported by ${browser.target} Manifest V2.`,
+    location: { file: sidepanel.input },
+    suggestion: 'Build for Manifest V3 or target Firefox.',
+  });
+}
+
+function applyDevtoolsEntrypoint(
+  manifest: Record<string, unknown>,
+  entrypoints: readonly ResolvedEntrypoint[],
+): void {
+  const devtools = entrypoints.find(
+    (entrypoint) => getEntrypointType(entrypoint) === 'devtools',
+  );
+
+  if (devtools !== undefined && manifest.devtools_page === undefined) {
+    manifest.devtools_page = getEntrypointOutputPath(devtools);
+  }
+}
+
+function applyOverrideEntrypoints(
+  manifest: Record<string, unknown>,
+  entrypoints: readonly ResolvedEntrypoint[],
+  diagnostics: Diagnostic[],
+): void {
+  const overrideKeys = new Set(['newtab', 'bookmarks', 'history']);
+
+  for (const entrypoint of entrypoints) {
+    if (getEntrypointType(entrypoint) !== 'override') {
+      continue;
+    }
+
+    const key = entrypoint.name.toLowerCase().split('.')[0] ?? '';
+
+    if (!overrideKeys.has(key)) {
+      diagnostics.push({
+        code: 'ADDONOVA_MANIFEST_OVERRIDE_UNKNOWN',
+        severity: 'warning',
+        message: `Override entrypoint "${entrypoint.name}" does not match a chrome_url_overrides key.`,
+        location: { file: entrypoint.input },
+        suggestion: 'Rename the entrypoint to newtab, bookmarks, or history.',
+      });
+      continue;
+    }
+
+    const overrides = ensureRecord(manifest, 'chrome_url_overrides');
+
+    if (overrides[key] === undefined) {
+      overrides[key] = getEntrypointOutputPath(entrypoint);
+    }
+  }
+}
+
+function applySandboxEntrypoints(
+  manifest: Record<string, unknown>,
+  entrypoints: readonly ResolvedEntrypoint[],
+): void {
+  const sandboxPages = entrypoints
+    .filter((entrypoint) => getEntrypointType(entrypoint) === 'sandbox')
+    .map((entrypoint) => getEntrypointOutputPath(entrypoint));
+
+  if (sandboxPages.length === 0) {
+    return;
+  }
+
+  const sandbox = ensureRecord(manifest, 'sandbox');
+  const pages = asStringArray(sandbox.pages);
+
+  for (const page of sandboxPages) {
+    if (!pages.includes(page)) {
+      pages.push(page);
+    }
+  }
+
+  sandbox.pages = pages;
+}
+
+function applyDiscoveredIcons(
+  manifest: Record<string, unknown>,
+  iconDir: string,
+): readonly Diagnostic[] {
+  const discovered = discoverIcons(iconDir);
+
+  if (
+    manifest.icons === undefined &&
+    Object.keys(discovered.icons).length > 0
+  ) {
+    manifest.icons = discovered.icons;
+  }
+
+  if (
+    manifest.theme_icons === undefined &&
+    discovered.themeIcons.length > 0
+  ) {
+    manifest.theme_icons = discovered.themeIcons;
+  }
+
+  return discovered.warnings.map((message) => ({
+    code: 'ADDONOVA_MANIFEST_ICON_DISCOVERY',
+    severity: 'warning',
+    message,
+    location: { file: iconDir },
+  }));
+}
+
+function getContentScriptEntries(
+  manifest: Record<string, unknown>,
+): unknown[] | null {
+  if (manifest.content_scripts === undefined) {
+    const entries: unknown[] = [];
+    manifest.content_scripts = entries;
+    return entries;
+  }
+
+  return Array.isArray(manifest.content_scripts)
+    ? manifest.content_scripts
+    : null;
+}
+
+function getEntrypointType(entrypoint: ResolvedEntrypoint) {
+  return entrypoint.type ?? inferEntrypointType(entrypoint.name, entrypoint.kind);
+}
+
+function getEntrypointOutputPath(entrypoint: ResolvedEntrypoint): string {
+  if (entrypoint.kind === 'html') {
+    return entrypoint.name.endsWith('.html')
+      ? entrypoint.name
+      : `${entrypoint.name}.html`;
+  }
+
+  if (entrypoint.kind === 'script') {
+    return `${entrypoint.name}.js`;
+  }
+
+  if (entrypoint.kind === 'style') {
+    return `${entrypoint.name}.css`;
+  }
+
+  return entrypoint.name;
+}
+
+function ensureRecord(
+  manifest: Record<string, unknown>,
+  key: string,
+): Record<string, unknown> {
+  const existing = manifest[key];
+
+  if (isRecord(existing)) {
+    return existing;
+  }
+
+  const created: Record<string, unknown> = {};
+  manifest[key] = created;
+
+  return created;
 }
 
 export function writeManifest(
@@ -206,6 +753,23 @@ function validateContentScripts(
         severity: 'error',
         message: `Manifest content_scripts[${index}] must be an object.`,
         suggestion: 'Provide an object with matches, js, or css fields.',
+      });
+      continue;
+    }
+
+    const matches = entry.matches;
+
+    if (
+      !Array.isArray(matches) ||
+      matches.length === 0 ||
+      !matches.every((match) => typeof match === 'string')
+    ) {
+      diagnostics.push({
+        code: 'ADDONOVA_MANIFEST_CONTENT_SCRIPT_MATCHES',
+        severity: 'error',
+        message: `Manifest content_scripts[${index}] must declare at least one match pattern.`,
+        suggestion:
+          'Add a non-empty "matches" array to the content script entry.',
       });
     }
   }
@@ -570,4 +1134,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return isRecord(value) ? value : null;
+}
+
+function asStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string')
+    : [];
 }

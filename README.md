@@ -29,9 +29,15 @@ the built CLI end to end.
 
 - Project scaffolding with `addonova init` and bundled or remote templates.
 - Chrome, Chromium, Edge, and Firefox targets.
-- Manifest V2 and V3 generation with per-browser overrides.
+- Manifest V2 and V3 generation with per-browser overrides and automatic
+  MV2/MV3 field conversion.
+- File-based entrypoints from `src/entrypoints/` with `define*` helpers.
+- Manifest synthesis for background, content scripts, popup, options,
+  side panel, devtools, sandbox, and URL overrides.
 - TypeScript and JavaScript bundling with extension-safe IIFE output.
 - HTML entry points with rewritten script, stylesheet, and asset references.
+- `package.json` defaults, icon auto-discovery, and dotenv-based
+  `import.meta.env` values.
 - CSS processing, static assets, and `public/` copying.
 - Browser-specific manifest validation before output is published.
 - Development watcher with warm rebuild contexts and last-successful-output
@@ -99,11 +105,34 @@ my-extension/
 │   └── icons/
 │       └── icon.svg
 └── src/
-    ├── background.ts
-    └── popup/
-        ├── index.html
-        ├── popup.ts
-        └── style.css
+    └── entrypoints/
+        ├── background.ts
+        ├── content.ts
+        └── popup/
+            ├── index.html
+            ├── popup.ts
+            └── style.css
+```
+
+```ts
+// src/entrypoints/background.ts
+import { defineBackground } from 'addonova/defines';
+
+export default defineBackground(() => {
+  console.log('background ready');
+});
+```
+
+```ts
+// src/entrypoints/content.ts
+import { defineContentScript } from 'addonova/defines';
+
+export default defineContentScript({
+  matches: ['https://example.com/*'],
+  main() {
+    console.log('content script ready');
+  },
+});
 ```
 
 ```ts
@@ -111,25 +140,19 @@ my-extension/
 import { defineConfig } from 'addonova';
 
 export default defineConfig({
-  entrypoints: {
-    background: 'src/background.ts',
-    popup: 'src/popup/index.html',
-  },
   manifest: {
     name: 'My Extension',
-    version: '1.0.0',
-    background: {
-      service_worker: 'background.js',
-    },
-    action: {
-      default_popup: 'popup.html',
-    },
+    permissions: ['storage'],
     icons: {
       '48': 'icons/icon.svg',
     },
   },
 });
 ```
+
+Entrypoints are discovered from `src/entrypoints/`, and Addonova synthesizes
+the background, content script, popup action, and icon manifest fields. Set
+`entrypoints` explicitly to override discovery.
 
 ```bash
 npx addonova build --browser chrome
@@ -155,12 +178,9 @@ identity helper that provides editor types.
 import { defineConfig } from 'addonova';
 
 export default defineConfig({
-  entrypoints: {
-    background: 'src/background.ts',
-    content: 'src/content.ts',
-    popup: 'src/popup/index.html',
-  },
   browsers: ['chrome', 'firefox'],
+  srcDir: 'src',
+  entrypointsDir: 'entrypoints',
   manifest: {
     name: 'My Extension',
     version: '1.0.0',
@@ -171,6 +191,7 @@ export default defineConfig({
   minify: true,
   sourcemap: false,
   browserApi: 'bundle',
+  convertManifest: true,
   plugins: [],
   pack: {
     format: 'zip',
@@ -182,9 +203,12 @@ export default defineConfig({
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
-| `entrypoints` | string, string[], or object | `{}` | Scripts, HTML files, styles, or assets to build. |
+| `entrypoints` | string, string[], or object | discovered | Scripts, HTML files, styles, or assets to build. Overrides convention discovery. |
+| `srcDir` | string | `src` | Source directory, resolved from the config file. |
+| `entrypointsDir` | string | `entrypoints` | Entrypoint directory relative to `srcDir`. |
 | `browsers` | target[] or override object | `['chrome']` | Targets to build. Overrides may set manifest fields. |
-| `manifest` | object | `{}` | Base manifest merged into every target. |
+| `manifest` | object or function | `{}` | Base manifest merged into every target. Functions receive `{ browser, manifestVersion, mode, command }`. |
+| `convertManifest` | boolean | `true` | Convert MV3-first fields to MV2 and back per target. |
 | `outdir` | string | `dist` | Output directory, resolved from the config file. |
 | `publicDir` | string | `public` | Files copied after a successful build. |
 | `mode` | `development` or `production` | `production` | Build mode. `dev` defaults to development. |
@@ -232,6 +256,68 @@ export default {
 
 Nested manifest fields are deep-merged. Unsupported fields are reported as
 warnings or errors; they are never silently removed.
+
+### Entrypoints
+
+Addonova scans `src/entrypoints/` for scripts, HTML pages, styles, and assets.
+Single files and `name/index.*` forms are supported. Recognized names derive
+their manifest role automatically:
+
+| Entrypoint | Manifest output |
+| --- | --- |
+| `background.ts` | `background.service_worker` or `background.scripts`. |
+| `content.ts`, `name.content.ts` | `content_scripts[]` with `matches` from `defineContentScript()`. |
+| `popup.html` | `action.default_popup` (or `browser_action`). |
+| `options.html` | `options_ui.page`. |
+| `sidepanel.html` | `side_panel.default_path` or `sidebar_action`. |
+| `devtools.html` | `devtools_page`. |
+| `newtab.html`, `bookmarks.html`, `history.html` | `chrome_url_overrides`. |
+| `sandbox.html` | `sandbox.pages`. |
+
+Use `define*` helpers from `addonova/defines` to declare metadata:
+
+```ts
+import {
+  defineBackground,
+  defineContentScript,
+  definePage,
+  defineUnlistedScript,
+} from 'addonova/defines';
+```
+
+`defineContentScript()` accepts `matches`, `excludeMatches`, `includeGlobs`,
+`excludeGlobs`, `runAt`, `allFrames`, `world`, `cssInjectionMode`, `include`,
+and `exclude`. Content scripts must declare `matches`. Use `include`/`exclude`
+on any helper to restrict browsers. HTML entrypoints can also declare
+`manifest.type`, `manifest.include`, and `manifest.exclude` meta tags.
+
+Explicit configuration still works and overrides discovered entrypoints:
+
+```ts
+export default {
+  entrypoints: {
+    background: 'src/background.ts',
+    popup: {
+      input: 'src/popup/index.html',
+      include: ['chrome'],
+    },
+  },
+};
+```
+
+### Defaults and environment
+
+When the manifest omits `name` or `version`, Addonova reads them from
+`package.json`. Prerelease versions are sanitized for the manifest and preserved
+in `version_name`. Icons matching `icon-<size>.(png|svg)` are discovered from
+`public/` and `public/icons/`; matching `icon-light-*` and `icon-dark-*` files
+become `theme_icons`.
+
+Dotenv files are loaded in this order, with later files overriding earlier
+ones: `.env`, `.env.local`, `.env.<mode>`, `.env.<mode>.local`, `.env.<browser>`,
+`.env.<browser>.local`. Only `ADDONOVA_*` and `VITE_*` variables are exposed to
+`import.meta.env`, alongside `MODE`, `DEV`, `PROD`, `BROWSER`, and
+`MANIFEST_VERSION`.
 
 ## 6. CLI reference
 

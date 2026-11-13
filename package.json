@@ -13,6 +13,10 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./defines": {
+      "types": "./dist/core/defines.d.ts",
+      "import": "./dist/core/defines.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

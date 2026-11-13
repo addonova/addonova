@@ -1,11 +1,6 @@
 import { defineConfig } from 'addonova';
 
 export default defineConfig({
-  entrypoints: {
-    background: 'src/background.ts',
-    content: 'src/content.ts',
-    popup: 'src/popup/index.html',
-  },
   browsers: ['chrome'],
   browserApi: 'bundle',
   manifest: {
@@ -13,11 +8,7 @@ export default defineConfig({
     version: '1.0.0',
     description: 'A React browser extension built with Addonova.',
     permissions: ['storage'],
-    background: {
-      service_worker: 'background.js',
-    },
     action: {
-      default_popup: 'popup.html',
       default_icon: {
         '16': 'icons/icon.svg',
         '48': 'icons/icon.svg',
@@ -27,11 +18,5 @@ export default defineConfig({
       '16': 'icons/icon.svg',
       '48': 'icons/icon.svg',
     },
-    content_scripts: [
-      {
-        matches: ['https://example.com/*'],
-        js: ['content.js'],
-      },
-    ],
   },
 });

@@ -8,7 +8,14 @@ export function validateCommand(context: CommandContext): number {
   let failed = false;
 
   for (const browser of context.config.browsers) {
-    const builtManifest = buildManifest(context.config.manifest, browser);
+    const builtManifest = buildManifest(context.config.manifest, browser, {
+      mode: context.config.mode,
+      command: 'validate',
+      defaults: context.config.manifestDefaults,
+      entrypoints: context.config.entrypoints,
+      convertManifest: context.config.convertManifest,
+      iconDir: context.config.publicDir,
+    });
     const errors = builtManifest.diagnostics.filter(
       (diagnostic) => diagnostic.severity === 'error',
     );

@@ -18,8 +18,8 @@ A React browser extension built with [Addonova](https://github.com/addonova/addo
 
 ## Layout
 
-- `src/background.ts` — background service worker.
-- `src/content.ts` — content script.
-- `src/popup/` — React popup (`main.tsx`, `App.tsx`) and styles.
+- `src/entrypoints/background.ts` — background service worker.
+- `src/entrypoints/content.ts` — content script.
+- `src/entrypoints/popup/` — React popup (`main.tsx`, `App.tsx`) and styles.
 - `public/` — files copied into the build output unchanged.
-- `addonova.config.ts` — entrypoints, browsers, and manifest.
+- `addonova.config.ts` — browsers and manifest defaults.

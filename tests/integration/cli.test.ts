@@ -412,11 +412,50 @@ async function initTemplate(
   expect(stderr()).toBe('');
 }
 
+const DEFINES_SHIM_SOURCE = `function unwrap(definition) {
+  return typeof definition === 'function' ? { main: definition } : definition;
+}
+export function defineBackground(definition) {
+  return unwrap(definition);
+}
+export function defineContentScript(definition) {
+  return unwrap(definition);
+}
+export function defineUnlistedScript(definition) {
+  return unwrap(definition);
+}
+export function definePage(definition) {
+  return unwrap(definition);
+}
+`;
+
 function installAddonovaShim(root: string): void {
   writeModule(
     root,
     'addonova',
     `export function defineConfig(config) {\n  return config;\n}\n`,
+  );
+
+  const directory = path.join(root, 'node_modules', 'addonova');
+  writeFileSync(
+    path.join(directory, 'package.json'),
+    JSON.stringify({
+      name: 'addonova',
+      version: '0.0.0-test',
+      type: 'module',
+      main: 'index.js',
+      exports: {
+        '.': './index.js',
+        './defines': './defines/index.js',
+      },
+    }),
+    'utf8',
+  );
+  mkdirSync(path.join(directory, 'defines'), { recursive: true });
+  writeFileSync(
+    path.join(directory, 'defines', 'index.js'),
+    DEFINES_SHIM_SOURCE,
+    'utf8',
   );
 }
 

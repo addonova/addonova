@@ -18,10 +18,13 @@ import {
   assertBrowserApiInstalled,
   getBrowserApiBundlerSettings,
 } from '../browser/api-integration.ts';
+import { collectContentScriptCss } from '../browser/content-css.ts';
 import {
   buildManifest,
   writeManifest,
 } from '../browser/manifest.ts';
+import { isEntrypointForBrowser } from './entrypoints.ts';
+import { loadBuildEnv, toImportMetaEnvDefines } from './env.ts';
 import {
   createPluginManager,
   mergePluginDiagnostics,
@@ -85,6 +88,18 @@ export async function buildProject(
         ? buildManifest(config.manifest, browser, {
             outdir,
             checkFiles: true,
+            mode: config.mode,
+            command: 'build',
+            defaults: config.manifestDefaults,
+            entrypoints: config.entrypoints,
+            convertManifest: config.convertManifest,
+            iconDir: outdir,
+            contentScriptCss: collectContentScriptCss({
+              config,
+              browser: browser.target,
+              outdir,
+              metafile: result.metafile,
+            }),
           })
         : null;
       const manifestPath =
@@ -129,12 +144,26 @@ export function toBundlerBuildInput(
     browser.target,
     config.browserApi,
   );
+  const env = loadBuildEnv({
+    root: config.root,
+    mode: config.mode,
+    browser: browser.target,
+    manifestVersion: browser.manifestVersion,
+  });
+  const define = {
+    ...browserApi.define,
+    ...toImportMetaEnvDefines(env),
+  };
 
   return {
     root: config.root,
     outdir,
     mode: config.mode,
-    entrypoints: toBundlerEntrypoints(config.entrypoints),
+    entrypoints: toBundlerEntrypoints(
+      config.entrypoints.filter((entrypoint) =>
+        isEntrypointForBrowser(entrypoint, browser.target),
+      ),
+    ),
     format: 'iife',
     bundle: true,
     splitting: false,
@@ -146,9 +175,7 @@ export function toBundlerBuildInput(
     ...(Object.keys(browserApi.alias).length === 0
       ? {}
       : { alias: browserApi.alias }),
-    ...(Object.keys(browserApi.define).length === 0
-      ? {}
-      : { define: browserApi.define }),
+    ...(Object.keys(define).length === 0 ? {} : { define }),
     external: [...browserApi.external],
     ...(transforms === undefined ? {} : { transforms }),
   };

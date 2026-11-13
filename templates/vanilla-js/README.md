@@ -17,8 +17,8 @@ A browser extension built with [Addonova](https://github.com/addonova/addonova).
 
 ## Layout
 
-- `src/background.js` — background service worker.
-- `src/content.js` — content script.
-- `src/popup/` — popup HTML, JavaScript, and CSS.
+- `src/entrypoints/background.js` — background service worker.
+- `src/entrypoints/content.js` — content script.
+- `src/entrypoints/popup/` — popup HTML, JavaScript, and CSS.
 - `public/` — files copied into the build output unchanged.
-- `addonova.config.js` — entrypoints, browsers, and manifest.
+- `addonova.config.js` — browsers and manifest defaults.

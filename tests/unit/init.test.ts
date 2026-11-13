@@ -65,6 +65,7 @@ describe('initProject', () => {
         path.join(
           result.root,
           'src',
+          'entrypoints',
           template === 'vanilla-js' ? 'background.js' : 'background.ts',
         ),
         'utf8',
