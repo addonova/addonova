@@ -82,6 +82,7 @@ describe('CLI argument parsing', () => {
       'pack',
       'zip',
       'analyze',
+      'doctor',
     ]) {
       expect(parseArgs([command]).command).toBe(command);
     }
