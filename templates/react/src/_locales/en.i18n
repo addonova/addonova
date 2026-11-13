@@ -1,0 +1,5 @@
+@app_name
+__PROJECT_TITLE__
+
+@app_description
+A React browser extension built with Addonova.
