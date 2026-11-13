@@ -21,6 +21,8 @@ import { applyManifestDefaults } from '../core/package.ts';
 import { collectCompatibilityDiagnostics } from './compatibility.ts';
 import { convertManifest } from './convert.ts';
 import { discoverIcons } from './icons.ts';
+import { validateManifestLocales } from './locales.ts';
+import type { LocaleCollection } from './locales.ts';
 import { getBrowserTargetInfo } from './targets.ts';
 
 export interface BuildManifestOptions {
@@ -34,6 +36,7 @@ export interface BuildManifestOptions {
   convertManifest?: boolean | undefined;
   iconDir?: string;
   contentScriptCss?: ReadonlyMap<string, readonly string[]>;
+  locales?: LocaleCollection | undefined;
 }
 
 export interface BuiltManifest {
@@ -82,6 +85,8 @@ export function buildManifest(
     ...iconDiagnostics,
     ...collectCompatibilityDiagnostics(manifest, browser, target),
     ...validateManifestStructure(manifest),
+    ...(options.locales?.diagnostics ?? []),
+    ...validateManifestLocales(manifest, options.locales),
   ];
 
   if (options.checkFiles === true) {
