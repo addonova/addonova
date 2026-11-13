@@ -103,7 +103,8 @@ templates are used.
 
 All bundled templates depend on `@addonova/browser` and set
 `browserApi: 'bundle'`, so the generated extension uses the unified browser API
-and builds standalone after `npm install`.
+and builds standalone after `npm install`. Templates also include a default
+`src/_locales/en.i18n` catalog for the manifest name and description.
 
 A minimal project:
 
