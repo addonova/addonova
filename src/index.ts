@@ -185,6 +185,27 @@ export type {
   BuildManifestOptions,
   BuiltManifest,
 } from './browser/manifest.ts';
+export {
+  collectLocales,
+  collectManifestMessageReferences,
+  formatLocaleMessages,
+  getManifestDefaultLocale,
+  isValidLocaleCode,
+  parseI18nMessages,
+  parseMessagesJson,
+  validateManifestLocales,
+} from './browser/locales.ts';
+export type {
+  CollectLocalesOptions,
+  LocaleCatalog,
+  LocaleCollection,
+  LocaleMessage,
+  LocaleMessages,
+  LocaleOutputFile,
+  LocaleParseResult,
+  LocalePlaceholder,
+  ManifestMessageReference,
+} from './browser/locales.ts';
 export { loadBuildEnv, toImportMetaEnvDefines } from './core/env.ts';
 export type { BuildEnv, LoadBuildEnvOptions } from './core/env.ts';
 export {
