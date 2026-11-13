@@ -81,6 +81,9 @@ describe('dev change classification', () => {
     expect(classifyChange(path.join(root, 'src/logo.png'), config)).toBe(
       'asset',
     );
+    expect(classifyChange(path.join(root, 'src/_locales/en.i18n'), config)).toBe(
+      'asset',
+    );
     expect(classifyChange(path.join(root, 'README.md'), config)).toBe(
       'unknown',
     );
