@@ -45,14 +45,9 @@ export type {
   ResolvedSourcesPackConfig,
 } from './core/config.ts';
 export {
-  WEB_EXT_CONFIG_FILENAMES,
   createDefaultWebExtConfig,
-  defineWebExtConfig,
-  findWebExtConfigFile,
-  loadWebExtConfigFile,
   mergeWebExtConfig,
   normalizeWebExtConfig,
-  resolveWebExtConfig,
 } from './launcher/config.ts';
 export {
   createBrowserLauncher,
@@ -75,9 +70,6 @@ export type {
   BrowserAdapter,
   LaunchBrowserOptions,
 } from './launcher/adapters/index.ts';
-export type {
-  ResolveWebExtConfigOptions,
-} from './launcher/config.ts';
 export type {
   BrowserLauncher,
   BrowserProfilePlan,
@@ -166,6 +158,17 @@ export type {
   AnalyzeProjectOptions,
   ProjectAnalysis,
 } from './core/analyze.ts';
+export {
+  DOCTOR_STATUSES,
+  collectDoctorReport,
+} from './core/doctor.ts';
+export type {
+  DoctorCheck,
+  DoctorOptions,
+  DoctorReport,
+  DoctorStatus,
+  DoctorSummary,
+} from './core/doctor.ts';
 export {
   expandBraces,
   filterPaths,
