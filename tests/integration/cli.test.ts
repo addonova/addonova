@@ -282,6 +282,53 @@ describe('CLI runner', () => {
     expect(stderr()).toContain('Manifest "version" is required');
   });
 
+  it('validates localized manifests without writing output', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: {
+    name: '__MSG_app_name__',
+    version: '1.0.0',
+    default_locale: 'en',
+  },
+};
+`,
+      'src/background.ts': 'export {};\n',
+      'src/_locales/en.i18n': '@app_name\nLocalized CLI\n',
+    });
+    const { io, stdout, stderr } = createIo(root);
+
+    const exitCode = await runCli(['validate'], io);
+
+    expect(exitCode).toBe(0);
+    expect(stderr()).toBe('');
+    expect(stdout()).toContain('Validated chrome MV3');
+    expect(stdout()).toContain('Configuration is valid.');
+    expect(existsSync(path.join(root, 'dist'))).toBe(false);
+  });
+
+  it('reports localized manifest validation errors', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: {
+    name: '__MSG_app_name__',
+    version: '1.0.0',
+    default_locale: 'en',
+  },
+};
+`,
+      'src/background.ts': 'export {};\n',
+      'src/_locales/en.i18n': '@other\nOther\n',
+    });
+    const { io, stderr } = createIo(root);
+
+    const exitCode = await runCli(['validate'], io);
+
+    expect(exitCode).toBe(1);
+    expect(stderr()).toContain('ADDONOVA_MANIFEST_LOCALE_MESSAGE_MISSING');
+  });
+
   it('cleans generated output and reports when nothing remains', async () => {
     const root = createProject({
       'addonova.config.ts': `export default {
