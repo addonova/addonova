@@ -30,7 +30,15 @@ import { AddonovaError, toDiagnostic } from '../core/errors.ts';
 import { createBrowserLauncher } from '../launcher/launcher.ts';
 import type { BrowserLauncher } from '../launcher/types.ts';
 import { collectContentScriptCss } from '../browser/content-css.ts';
-import { buildManifest, writeManifest } from '../browser/manifest.ts';
+import {
+  collectLocales,
+  getManifestDefaultLocale,
+} from '../browser/locales.ts';
+import {
+  buildManifest,
+  resolveManifestObject,
+  writeManifest,
+} from '../browser/manifest.ts';
 import { applyDevManifestAdditions, DevReloadServer } from './browser.ts';
 import { injectDevReloadClient } from './reload-client.ts';
 import {
@@ -131,6 +139,7 @@ const ASSET_EXTENSIONS = new Set([
   '.csv',
   '.eot',
   '.gif',
+  '.i18n',
   '.ico',
   '.jpeg',
   '.jpg',
@@ -712,6 +721,24 @@ export class DevSession {
         assets,
       });
 
+      const resolvedManifest = resolveManifestObject(
+        this.config.manifest,
+        target.browser,
+        {
+          mode: this.config.mode,
+          command: 'dev',
+          defaults: this.config.manifestDefaults,
+        },
+      );
+      const locales = collectLocales({
+        root: this.config.root,
+        srcDir: this.config.srcDir ?? 'src',
+        publicDir: this.config.publicDir,
+        defaultLocale: getManifestDefaultLocale(resolvedManifest),
+      });
+
+      assets.push(...locales.files);
+
       const generatedAssets = writeGeneratedAssets(target.staging, assets);
       const availableFiles = new Set([
         ...generated,
@@ -734,6 +761,7 @@ export class DevSession {
           outdir: target.staging,
           metafile: result.metafile,
         }),
+        locales,
       });
 
       const manifestDiagnostics = [...builtManifest.diagnostics];
