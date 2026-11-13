@@ -1,95 +1,10 @@
-import { existsSync, readFileSync } from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-
 import { isBrowserTarget } from '../core/types.ts';
 import type { BrowserTarget } from '../core/types.ts';
-import { loadConfigModule } from '../core/config-module.ts';
 import { AddonovaError } from '../core/errors.ts';
 import type {
   ResolvedWebExtConfig,
   WebExtConfig,
 } from './types.ts';
-
-export const WEB_EXT_CONFIG_FILENAMES = [
-  'web-ext.config.ts',
-  'web-ext.config.js',
-  'web-ext.config.mjs',
-  'web-ext.config.json',
-] as const;
-
-export function defineWebExtConfig<T extends WebExtConfig>(config: T): T {
-  return config;
-}
-
-export function findWebExtConfigFile(directory: string): string | null {
-  for (const filename of WEB_EXT_CONFIG_FILENAMES) {
-    const candidate = path.join(directory, filename);
-    if (existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
-export async function loadWebExtConfigFile(
-  filePath: string,
-): Promise<WebExtConfig> {
-  let loaded: unknown;
-
-  if (path.extname(filePath).toLowerCase() === '.json') {
-    try {
-      loaded = JSON.parse(readFileSync(filePath, 'utf8')) as unknown;
-    } catch (error) {
-      throw new AddonovaError({
-        code: 'ADDONOVA_WEB_EXT_CONFIG_LOAD_FAILED',
-        severity: 'error',
-        message: `Failed to load web-ext configuration: ${filePath}`,
-        location: { file: filePath },
-        suggestion: 'Check the web-ext configuration file for syntax errors.',
-        cause: error,
-      });
-    }
-  } else {
-    loaded = await loadConfigModule(filePath, {
-      code: 'ADDONOVA_WEB_EXT_CONFIG_LOAD_FAILED',
-      message: 'Failed to load web-ext configuration',
-      suggestion: 'Check the web-ext configuration file for syntax or runtime errors.',
-    });
-  }
-
-  assertWebExtConfigObject(loaded, filePath);
-
-  return loaded;
-}
-
-export interface ResolveWebExtConfigOptions {
-  root: string;
-  homeDir?: string;
-}
-
-export async function resolveWebExtConfig(
-  baseConfig: WebExtConfig | undefined,
-  options: ResolveWebExtConfigOptions,
-): Promise<WebExtConfig> {
-  const homeDir = options.homeDir ?? os.homedir();
-  const globalConfigPath = findWebExtConfigFile(
-    path.join(homeDir, '.addonova'),
-  );
-  const projectConfigPath = findWebExtConfigFile(options.root);
-
-  const globalConfig =
-    globalConfigPath === null
-      ? undefined
-      : await loadWebExtConfigFile(globalConfigPath);
-  const projectConfig =
-    projectConfigPath === null
-      ? undefined
-      : await loadWebExtConfigFile(projectConfigPath);
-
-  return mergeWebExtConfig(globalConfig, baseConfig, projectConfig);
-}
 
 export function mergeWebExtConfig(
   ...sources: readonly (WebExtConfig | undefined)[]
@@ -172,7 +87,7 @@ function assertWebExtConfigObject(
   if (!isPlainObject(value)) {
     throw invalidWebExtConfig(
       configPath,
-      'The web-ext configuration must export an object.',
+      'The "webExt" option must be an object.',
     );
   }
 
@@ -287,7 +202,7 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 function invalidWebExtConfig(
   configPath: string | null,
   message: string,
-  suggestion = 'Check the web-ext configuration and the "webExt" option.',
+  suggestion = 'Check the "webExt" option.',
 ): AddonovaError {
   return new AddonovaError({
     code: 'ADDONOVA_WEB_EXT_CONFIG_INVALID',
