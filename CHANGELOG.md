@@ -41,9 +41,8 @@ All notable changes to `addonova` are documented here.
   `webExt.binaries`.
 - `webExt` configuration for `chromiumArgs`, `firefoxArgs`, `startUrls`,
   persistent profiles, `keepProfileChanges`, and `disabled`.
-- Global `~/.addonova/web-ext.config.{ts,js,mjs,json}` and project
-  `web-ext.config.*` files merged with `addonova.config.*`, with
-  `defineWebExtConfig()`.
+- Launcher defaults from `webExt` in project `addonova.config.*`, with optional
+  user defaults from `~/.addonova/addonova.config.*`.
 - Isolated temporary browser profiles by default, with cleanup on shutdown and
   persistent profile support.
 - Chromium extension loading through CDP over `--remote-debugging-pipe` with a
@@ -72,6 +71,10 @@ All notable changes to `addonova` are documented here.
   `pack.sources.include`, and `pack.sources.exclude`.
 - `addonova analyze` command with a human-readable bundle report and `--json`
   output, plus the exported `analyzeProject()` API.
+- `addonova doctor` environment diagnostics with human-readable and `--json`
+  output, plus the exported `collectDoctorReport()` API. Checks Node.js,
+  Guchho, configuration, entrypoints, browser binaries, and bundled browser API
+  resolution.
 - Glob matching helpers exported as `matchesGlob()`, `matchesAny()`,
   `matchesDirectory()`, `filterPaths()`, and `expandBraces()`.
 - `ADDONOVA_ANALYZE_FAILED`, `ADDONOVA_PACK_EMPTY`,
@@ -82,11 +85,14 @@ All notable changes to `addonova` are documented here.
   `ADDONOVA_MODULE_INVALID`, `ADDONOVA_MODULE_SETUP_FAILED`,
   `ADDONOVA_MODULE_DUPLICATE`, and `ADDONOVA_GENERATED_ASSET_INVALID`
   diagnostics.
-- `ADDONOVA_WEB_EXT_CONFIG_LOAD_FAILED`, `ADDONOVA_WEB_EXT_CONFIG_INVALID`,
-  `ADDONOVA_BROWSER_NOT_FOUND`, `ADDONOVA_BROWSER_LAUNCH_FAILED`, and
+- `ADDONOVA_WEB_EXT_CONFIG_INVALID`, `ADDONOVA_BROWSER_NOT_FOUND`,
+  `ADDONOVA_BROWSER_LAUNCH_FAILED`, and
   `ADDONOVA_BROWSER_EXTENSION_LOAD_FAILED` diagnostics.
 - Public exports for launcher configuration, browser detection, adapters, and
   launcher types.
+- `@addonova/browser` peer range and bundled templates now target `^0.2.0`,
+  which adds typed storage, type-safe messaging, content-script context and UI
+  helpers, i18n helpers, and fake-browser testing utilities.
 
 ### Changed
 
@@ -103,7 +109,9 @@ All notable changes to `addonova` are documented here.
   running.
 - `pack` and `zip` accept filters, preserve nested paths by staging filtered
   files, and can write source archives for Firefox targets.
-
+- Dedicated project `web-ext.config.*` files are no longer read; launcher
+  defaults belong under `webExt` in `addonova.config.*`. User-level defaults now
+  use `~/.addonova/addonova.config.*`.
 - Bundled templates now use convention-based `src/entrypoints/` layouts and
   `define*` helpers instead of explicit entrypoint configuration.
 
