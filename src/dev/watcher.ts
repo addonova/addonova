@@ -2,6 +2,7 @@ import {
   copyFileSync,
   existsSync,
   mkdirSync,
+  readdirSync,
   renameSync,
   rmSync,
 } from 'node:fs';
@@ -25,6 +26,9 @@ import {
 import { CONFIG_FILENAMES } from '../core/config.ts';
 import type { ResolvedBrowser, ResolvedConfig } from '../core/config.ts';
 import { AddonovaError, toDiagnostic } from '../core/errors.ts';
+import { WEB_EXT_CONFIG_FILENAMES } from '../launcher/config.ts';
+import { createBrowserLauncher } from '../launcher/launcher.ts';
+import type { BrowserLauncher } from '../launcher/types.ts';
 import { collectContentScriptCss } from '../browser/content-css.ts';
 import { buildManifest, writeManifest } from '../browser/manifest.ts';
 import {
@@ -63,6 +67,13 @@ export type DevWatcherFactory = (
   options: DevWatcherOptions,
 ) => Promise<DevWatcher> | DevWatcher;
 
+export type BrowserLauncherFactory = (
+  target: ResolvedBrowser['target'],
+  config: ResolvedConfig,
+  extensionDir: string,
+  projectRoot: string,
+) => BrowserLauncher;
+
 export interface DevSessionOptions {
   config: ResolvedConfig;
   io: CliIo;
@@ -71,6 +82,7 @@ export interface DevSessionOptions {
   debounceMs?: number;
   watcherFactory?: DevWatcherFactory;
   reloadConfig?: () => Promise<ResolvedConfig>;
+  launcherFactory?: BrowserLauncherFactory;
 }
 
 interface ActiveTarget {
@@ -78,6 +90,7 @@ interface ActiveTarget {
   outdir: string;
   staging: string;
   context: BundlerContext;
+  launcher: BrowserLauncher | null;
 }
 
 interface TargetSet {
@@ -143,7 +156,7 @@ export function classifyChange(file: string, config: ResolvedConfig): ChangeKind
   }
 
   if (
-    (CONFIG_FILENAMES as readonly string[]).some(
+    [...CONFIG_FILENAMES, ...WEB_EXT_CONFIG_FILENAMES].some(
       (candidate) => candidate.toLowerCase() === fileName,
     )
   ) {
@@ -191,6 +204,7 @@ export class DevSession {
   private readonly debounceMs: number;
   private readonly watcherFactory: DevWatcherFactory;
   private readonly reloadConfig: () => Promise<ResolvedConfig>;
+  private readonly launcherFactory: BrowserLauncherFactory;
   private targetSet: TargetSet | null = null;
   private watcher: DevWatcher | null = null;
   private timer: NodeJS.Timeout | null = null;
@@ -213,6 +227,18 @@ export class DevSession {
     this.reloadConfig =
       options.reloadConfig ??
       (async () => options.config);
+    this.launcherFactory =
+      options.launcherFactory ??
+      ((target, config, extensionDir, projectRoot) =>
+        createBrowserLauncher({
+          target,
+          extensionDir,
+          projectRoot,
+          config: config.webExt,
+          onWarning: (diagnostic) => {
+            this.io.stderr.write(`${formatDiagnostic(diagnostic, this.style)}\n`);
+          },
+        }));
 
     if (this.adapter.createContext === undefined) {
       throw new AddonovaError({
@@ -488,6 +514,14 @@ export class DevSession {
           outdir,
           staging,
           context,
+          launcher: config.webExt.disabled
+            ? null
+            : this.launcherFactory(
+                browser.target,
+                config,
+                outdir,
+                config.root,
+              ),
         });
       }
     } catch (error) {
@@ -604,7 +638,12 @@ export class DevSession {
       }
 
       writeManifest(target.staging, builtManifest.manifest);
-      publishOutput(target.staging, target.outdir, availableFiles);
+      publishOutput(
+        target.staging,
+        target.outdir,
+        availableFiles,
+        target.launcher?.isRunning ?? false,
+      );
 
       const duration = Date.now() - started;
       const verb = reason === 'initial' ? 'Built' : 'Rebuilt';
@@ -616,12 +655,49 @@ export class DevSession {
           target.outdir,
         )} (${formatDuration(duration)}, ${result.outputs.length} outputs)\n`,
       );
+
+      await this.updateLauncher(target, reason);
     } catch (error) {
       this.printError(error);
     }
   }
 
+  private async updateLauncher(
+    target: ActiveTarget,
+    reason: 'initial' | 'change',
+  ): Promise<void> {
+    const launcher = target.launcher;
+
+    if (launcher === null) {
+      return;
+    }
+
+    try {
+      if (reason === 'initial' || !launcher.isRunning) {
+        await launcher.launch();
+      } else {
+        await launcher.reload();
+      }
+    } catch (error) {
+      this.printLauncherWarning(error);
+    }
+  }
+
   private async disposeTargetSet(targetSet: TargetSet): Promise<void> {
+    for (const target of targetSet.targets) {
+      const launcher = target.launcher;
+
+      if (launcher !== null) {
+        target.launcher = null;
+
+        try {
+          await launcher.close();
+        } catch (error) {
+          this.printError(error);
+        }
+      }
+    }
+
     for (const target of targetSet.targets) {
       await target.context.dispose().catch((error: unknown) => {
         this.printError(error);
@@ -666,6 +742,17 @@ export class DevSession {
   private printError(error: unknown): void {
     this.io.stderr.write(
       `${formatDiagnostic(toDiagnostic(error), this.style)}\n`,
+    );
+  }
+
+  private printLauncherWarning(error: unknown): void {
+    const diagnostic = toDiagnostic(error);
+
+    this.io.stderr.write(
+      `${formatDiagnostic(
+        { ...diagnostic, severity: 'warning' },
+        this.style,
+      )}\n`,
     );
   }
 }
@@ -724,7 +811,13 @@ function publishOutput(
   staging: string,
   destination: string,
   relativeFiles: ReadonlySet<string>,
+  inPlace: boolean,
 ): void {
+  if (inPlace) {
+    publishOutputInPlace(staging, destination, relativeFiles);
+    return;
+  }
+
   const swap = `${destination}.addonova-swap`;
   const backup = `${destination}.addonova-backup`;
 
@@ -766,6 +859,66 @@ function publishOutput(
   } catch (error) {
     rmSync(swap, { recursive: true, force: true });
     throw error;
+  }
+}
+
+function publishOutputInPlace(
+  staging: string,
+  destination: string,
+  relativeFiles: ReadonlySet<string>,
+): void {
+  mkdirSync(destination, { recursive: true });
+
+  for (const relativeFile of relativeFiles) {
+    if (
+      relativeFile === '' ||
+      relativeFile.startsWith('../') ||
+      path.isAbsolute(relativeFile)
+    ) {
+      continue;
+    }
+
+    const source = path.join(staging, relativeFile);
+    const target = path.join(destination, relativeFile);
+
+    mkdirSync(path.dirname(target), { recursive: true });
+    copyFileSync(source, target);
+  }
+
+  pruneStaleOutput(destination, '', relativeFiles);
+}
+
+function pruneStaleOutput(
+  directory: string,
+  relativeDirectory: string,
+  relativeFiles: ReadonlySet<string>,
+): void {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const relativePath =
+      relativeDirectory === ''
+        ? entry.name
+        : `${relativeDirectory}/${entry.name}`;
+
+    if (entry.isDirectory()) {
+      pruneStaleOutput(
+        path.join(directory, entry.name),
+        relativePath,
+        relativeFiles,
+      );
+
+      if (readdirSync(path.join(directory, entry.name)).length === 0) {
+        rmSync(path.join(directory, entry.name), {
+          recursive: true,
+          force: true,
+        });
+      }
+
+      continue;
+    }
+
+    if (!relativeFiles.has(relativePath)) {
+      rmSync(path.join(directory, entry.name), { force: true });
+    }
   }
 }
 
