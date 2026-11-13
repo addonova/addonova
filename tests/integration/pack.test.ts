@@ -81,6 +81,123 @@ describe('project pack', () => {
     await expect(packProject(overwriteConfig)).resolves.toHaveLength(1);
   }, 60_000);
 
+  it('filters archive files and preserves nested output paths', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: {
+    name: 'Filtered Pack',
+    version: '1.0.0',
+    background: { service_worker: 'background.js' },
+    icons: { '16': 'icons/icon.svg' },
+  },
+  minify: false,
+  pack: { format: 'tar.gz' },
+};
+`,
+      'src/background.ts': 'console.log("filtered");\n',
+      'public/icons/icon.svg': '<svg></svg>\n',
+      'public/icons/private/secret.svg': '<svg></svg>\n',
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+
+    await buildProject(config);
+
+    const [result] = await packProject(config, {
+      format: 'zip',
+      exclude: ['icons/private/**'],
+    });
+
+    expect(result).toBeDefined();
+
+    if (result === undefined) {
+      throw new Error('Expected one pack result.');
+    }
+
+    expect(result.archivePath).toBe(
+      path.join(root, 'dist', 'addonova-chrome-mv3-1.0.0.zip'),
+    );
+
+    const extracted = path.join(root, 'unpacked-filtered');
+    await unpack({ archive: result.archivePath, outDir: extracted });
+
+    expect(existsSync(path.join(extracted, 'manifest.json'))).toBe(true);
+    expect(existsSync(path.join(extracted, 'background.js'))).toBe(true);
+    expect(existsSync(path.join(extracted, 'icons/icon.svg'))).toBe(true);
+    expect(existsSync(path.join(extracted, 'icons/private/secret.svg'))).toBe(
+      false,
+    );
+  }, 60_000);
+
+  it('packs a Firefox source archive without build output or dependencies', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'Source Pack', version: '1.0.0' },
+  browsers: ['firefox'],
+  minify: false,
+  pack: { sources: true },
+};
+`,
+      'src/background.ts': 'console.log("sources");\n',
+      'node_modules/ignored/index.js': 'module.exports = 1;\n',
+      '.git/config': '[core]\n',
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+
+    await buildProject(config);
+
+    const [result] = await packProject(config);
+
+    expect(result).toBeDefined();
+
+    if (result === undefined) {
+      throw new Error('Expected one pack result.');
+    }
+
+    expect(result.sources).toBeDefined();
+
+    if (result.sources === undefined) {
+      throw new Error('Expected a source archive.');
+    }
+
+    expect(result.sources.archivePath).toBe(
+      path.join(root, 'dist', 'addonova-firefox-mv3-1.0.0-sources.zip'),
+    );
+    expect(result.sources.files).toBeGreaterThan(0);
+
+    const extracted = path.join(root, 'unpacked-sources');
+    await unpack({
+      archive: result.sources.archivePath,
+      outDir: extracted,
+    });
+
+    expect(existsSync(path.join(extracted, 'addonova.config.ts'))).toBe(true);
+    expect(existsSync(path.join(extracted, 'src/background.ts'))).toBe(true);
+    expect(existsSync(path.join(extracted, 'dist'))).toBe(false);
+    expect(existsSync(path.join(extracted, 'node_modules'))).toBe(false);
+    expect(existsSync(path.join(extracted, '.git'))).toBe(false);
+  }, 60_000);
+
+  it('rejects source archives when no Firefox target is configured', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'Source Pack', version: '1.0.0' },
+};
+`,
+      'src/background.ts': 'export {};\n',
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+
+    await expect(
+      packProject(config, { sources: true }),
+    ).rejects.toHaveProperty(
+      'code',
+      'ADDONOVA_PACK_SOURCES_UNSUPPORTED',
+    );
+  });
+
   it('reports missing build output', async () => {
     const root = createProject({
       'addonova.config.ts': `export default {
