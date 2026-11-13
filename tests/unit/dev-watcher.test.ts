@@ -42,6 +42,9 @@ const config: ResolvedConfig = {
     format: 'zip',
     overwrite: false,
     deterministic: false,
+    include: ['**/*'],
+    exclude: [],
+    sources: null,
   },
 };
 
