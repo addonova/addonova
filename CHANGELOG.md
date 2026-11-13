@@ -35,8 +35,35 @@ All notable changes to `addonova` are documented here.
   exported from the public API.
 - Unit and integration coverage for scaffolding, generated project builds, and
   git handling.
+- Native browser launcher for `addonova dev`, supporting Chrome, Chromium, Edge,
+  and Firefox without depending on `web-ext`.
+- Automatic browser binary detection per platform, plus custom executables via
+  `webExt.binaries`.
+- `webExt` configuration for `chromiumArgs`, `firefoxArgs`, `startUrls`,
+  persistent profiles, `keepProfileChanges`, and `disabled`.
+- Global `~/.addonova/web-ext.config.{ts,js,mjs,json}` and project
+  `web-ext.config.*` files merged with `addonova.config.*`, with
+  `defineWebExtConfig()`.
+- Isolated temporary browser profiles by default, with cleanup on shutdown and
+  persistent profile support.
+- Chromium extension loading through CDP over `--remote-debugging-pipe` with a
+  `--load-extension` fallback, and Firefox extension loading through WebDriver
+  BiDi.
+- Automatic extension reload after successful rebuilds, relaunch after browser
+  exits, and non-fatal launch warnings.
+- `ADDONOVA_WEB_EXT_CONFIG_LOAD_FAILED`, `ADDONOVA_WEB_EXT_CONFIG_INVALID`,
+  `ADDONOVA_BROWSER_NOT_FOUND`, `ADDONOVA_BROWSER_LAUNCH_FAILED`, and
+  `ADDONOVA_BROWSER_EXTENSION_LOAD_FAILED` diagnostics.
+- Public exports for launcher configuration, browser detection, adapters, and
+  launcher types.
 
 ### Changed
+
+- `addonova dev` now launches configured browsers and reloads the extension on
+  rebuilds.
+- Dev output is published in place while a browser is running so Windows file
+  locks are avoided; the directory swap is still used when no browser is
+  running.
 
 - Bundled templates now use convention-based `src/entrypoints/` layouts and
   `define*` helpers instead of explicit entrypoint configuration.
