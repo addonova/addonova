@@ -54,6 +54,7 @@ describe('initProject', () => {
       expect(existsSync(path.join(result.root, configName))).toBe(true);
       expect(existsSync(path.join(result.root, 'package.json'))).toBe(true);
       expect(result.files).toContain('package.json');
+      expect(result.files).toContain('src/_locales/en.i18n');
       expect(result.files).not.toContain('_gitignore');
       expectNoPlaceholders(result);
 
@@ -70,10 +71,19 @@ describe('initProject', () => {
         ),
         'utf8',
       );
+      const locale = readFileSync(
+        path.join(result.root, 'src', '_locales', 'en.i18n'),
+        'utf8',
+      );
 
       expect(packageJson.dependencies?.['@addonova/browser']).toBe('^0.2.0');
       expect(config).toContain("browserApi: 'bundle'");
+      expect(config).toContain("default_locale: 'en'");
+      expect(config).toContain("name: '__MSG_app_name__'");
+      expect(config).toContain("description: '__MSG_app_description__'");
       expect(background).toContain("from '@addonova/browser'");
+      expect(locale).toContain('@app_name\nMy Extension');
+      expect(locale).not.toContain('__PROJECT_TITLE__');
     });
   }
 
