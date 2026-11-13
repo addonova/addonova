@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -15,6 +16,7 @@ import {
   getEntrypointOutputName,
   getOutputDirectory,
   toBundlerEntrypoints,
+  writeGeneratedAssets,
 } from '../../src/core/build.ts';
 import type {
   ResolvedBrowser,
@@ -137,6 +139,30 @@ describe('build mapping', () => {
         copied: [],
         warnings: [],
       });
+  });
+
+  it('writes generated assets and rejects paths outside the output directory', () => {
+    const root = createProject({});
+    const outdir = path.join(root, 'out');
+    const written = writeGeneratedAssets(outdir, [
+      { path: 'generated/config.json', contents: '{"ok":true}' },
+      { path: 'root.txt', contents: new Uint8Array([104, 105]) },
+    ]);
+
+    expect(written).toEqual(['generated/config.json', 'root.txt']);
+    expect(
+      readFileSync(path.join(outdir, 'generated/config.json'), 'utf8'),
+    ).toBe('{"ok":true}');
+    expect(readFileSync(path.join(outdir, 'root.txt'), 'utf8')).toBe('hi');
+
+    expect(() =>
+      writeGeneratedAssets(outdir, [{ path: '../escape.txt', contents: '' }]),
+    ).toThrow('not a relative output path');
+    expect(() =>
+      writeGeneratedAssets(outdir, [
+        { path: path.join(root, 'absolute.txt'), contents: '' },
+      ]),
+    ).toThrow('not a relative output path');
   });
 });
 

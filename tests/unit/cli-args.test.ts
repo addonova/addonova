@@ -33,6 +33,7 @@ describe('CLI argument parsing', () => {
       minify: false,
       sourcemap: 'inline',
       verbose: true,
+      debug: false,
       noColor: false,
       help: false,
       version: false,
@@ -42,6 +43,12 @@ describe('CLI argument parsing', () => {
   it('parses the no-color flag', () => {
     expect(parseArgs(['build', '--no-color']).noColor).toBe(true);
     expectCliError(['build', '--no-color=true'], 'ADDONOVA_CLI_INVALID_VALUE');
+  });
+
+  it('parses the debug flag', () => {
+    expect(parseArgs(['dev', '--debug']).debug).toBe(true);
+    expect(parseArgs(['dev', '--debug=false']).debug).toBe(false);
+    expectCliError(['dev', '--debug=yes'], 'ADDONOVA_CLI_INVALID_VALUE');
   });
 
   it('parses the browser API mode', () => {
@@ -98,6 +105,7 @@ describe('CLI argument parsing', () => {
       offline: true,
       browsers: [],
       verbose: false,
+      debug: false,
       noColor: false,
       help: false,
       version: false,

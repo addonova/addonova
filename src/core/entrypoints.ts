@@ -1,6 +1,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
 
+import { AddonovaError } from './errors.ts';
+import { BROWSER_TARGETS, isBrowserTarget } from './types.ts';
 import type { BrowserTarget, EntrypointKind } from './types.ts';
 
 export const ENTRYPOINT_TYPES = [
@@ -218,6 +220,70 @@ export function describeEntrypoint(
   }
 
   return entrypoint;
+}
+
+export interface ResolveEntrypointDefinitionOptions {
+  root: string;
+  name: string;
+  input: string;
+  selection?: EntrypointSelection;
+  configPath?: string | null;
+}
+
+export function resolveEntrypointDefinition(
+  options: ResolveEntrypointDefinitionOptions,
+): DiscoveredEntrypoint {
+  const configPath = options.configPath ?? null;
+
+  if (
+    options.name.trim() === '' ||
+    options.name.includes('/') ||
+    options.name.includes('\\')
+  ) {
+    throw entrypointError(
+      'ADDONOVA_CONFIG_ENTRYPOINTS',
+      `Invalid entrypoint name "${options.name}".`,
+      'Use a simple name without path separators.',
+      configPath,
+    );
+  }
+
+  if (options.input.trim() === '') {
+    throw entrypointError(
+      'ADDONOVA_CONFIG_ENTRYPOINTS',
+      `Entrypoint "${options.name}" must point to a non-empty file path.`,
+      'Provide a path to a script, HTML file, stylesheet, or asset.',
+      configPath,
+    );
+  }
+
+  const selection = options.selection ?? {};
+
+  assertEntrypointSelection(selection.include, `${options.name}.include`, configPath);
+  assertEntrypointSelection(selection.exclude, `${options.name}.exclude`, configPath);
+
+  if (selection.type !== undefined && !isEntrypointType(selection.type)) {
+    throw entrypointError(
+      'ADDONOVA_CONFIG_ENTRYPOINTS',
+      `Entrypoint "${options.name}" has an unknown type "${String(selection.type)}".`,
+      'Use a supported entrypoint type such as background, content-script, or popup.',
+      configPath,
+    );
+  }
+
+  const absoluteInput = path.resolve(options.root, options.input);
+  const kind = detectEntrypointKind(options.input);
+
+  if (!isFile(absoluteInput)) {
+    throw entrypointError(
+      'ADDONOVA_CONFIG_ENTRYPOINT_MISSING',
+      `Entrypoint "${options.name}" was not found: ${absoluteInput}`,
+      'Check the path and ensure the file exists.',
+      configPath,
+    );
+  }
+
+  return describeEntrypoint(options.name, absoluteInput, kind, selection);
 }
 
 export function inferEntrypointType(
@@ -723,6 +789,51 @@ function isFile(filePath: string): boolean {
   } catch {
     return false;
   }
+}
+
+function assertEntrypointSelection(
+  selection: readonly BrowserTarget[] | undefined,
+  field: string,
+  configPath: string | null,
+): void {
+  if (selection === undefined) {
+    return;
+  }
+
+  if (!Array.isArray(selection)) {
+    throw entrypointError(
+      'ADDONOVA_CONFIG_ENTRYPOINTS',
+      `Entrypoint "${field}" must be an array of browser targets.`,
+      `Use one of: ${BROWSER_TARGETS.join(', ')}.`,
+      configPath,
+    );
+  }
+
+  for (const target of selection) {
+    if (!isBrowserTarget(target)) {
+      throw entrypointError(
+        'ADDONOVA_CONFIG_ENTRYPOINTS',
+        `Entrypoint "${field}" contains an unknown browser target "${String(target)}".`,
+        `Use one of: ${BROWSER_TARGETS.join(', ')}.`,
+        configPath,
+      );
+    }
+  }
+}
+
+function entrypointError(
+  code: string,
+  message: string,
+  suggestion: string,
+  configPath: string | null,
+): AddonovaError {
+  return new AddonovaError({
+    code,
+    severity: 'error',
+    message,
+    suggestion,
+    ...(configPath === null ? {} : { location: { file: configPath } }),
+  });
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

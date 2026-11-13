@@ -51,6 +51,24 @@ All notable changes to `addonova` are documented here.
   BiDi.
 - Automatic extension reload after successful rebuilds, relaunch after browser
   exits, and non-fatal launch warnings.
+- Development auto-reload: a loopback WebSocket client is injected into the
+  background script or service worker to reload matching tabs and the extension
+  after successful rebuilds.
+- Development-only manifest additions: `tabs`, MV3 `scripting`, and a
+  ` (Development)` name suffix.
+- `--debug` for structured JSON dev lifecycle diagnostics on stderr.
+- Extensibility hooks: `config:resolved`, `entrypoints:found`,
+  `entrypoints:resolved`, `build:manifestGenerated`, `build:publicAssets`,
+  `build:done`, and `dev:reload`, with deterministic module-then-config ordering.
+- Module system with `modules` configuration, automatic `modules/*` discovery,
+  `defineAddonovaModule()`, module entrypoints, aliases, generated files, and
+  typed hooks.
+- Generated asset writing for `build:publicAssets`, exported as
+  `writeGeneratedAssets()`.
+- `ADDONOVA_HOOK_FAILED`, `ADDONOVA_MODULE_LOAD_FAILED`,
+  `ADDONOVA_MODULE_INVALID`, `ADDONOVA_MODULE_SETUP_FAILED`,
+  `ADDONOVA_MODULE_DUPLICATE`, and `ADDONOVA_GENERATED_ASSET_INVALID`
+  diagnostics.
 - `ADDONOVA_WEB_EXT_CONFIG_LOAD_FAILED`, `ADDONOVA_WEB_EXT_CONFIG_INVALID`,
   `ADDONOVA_BROWSER_NOT_FOUND`, `ADDONOVA_BROWSER_LAUNCH_FAILED`, and
   `ADDONOVA_BROWSER_EXTENSION_LOAD_FAILED` diagnostics.
@@ -61,6 +79,12 @@ All notable changes to `addonova` are documented here.
 
 - `addonova dev` now launches configured browsers and reloads the extension on
   rebuilds.
+- Build and dev now run public-asset and manifest hooks for every target and
+  merge module-provided aliases into the bundler alias map.
+- Editing a module file in `dev` reloads configuration and module setup before
+  rebuilding.
+- Dev rebuilds now print cycle timing and target success counts; launcher reloads
+  are skipped when an injected reload client handles the rebuild.
 - Dev output is published in place while a browser is running so Windows file
   locks are avoided; the directory swap is still used when no browser is
   running.

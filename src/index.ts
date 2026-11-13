@@ -115,6 +115,7 @@ export {
   getEntrypointOutputName,
   getOutputDirectory,
   toBundlerEntrypoints,
+  writeGeneratedAssets,
 } from './core/build.ts';
 export type {
   BuildProjectOptions,
@@ -187,6 +188,44 @@ export {
 } from './plugins/manager.ts';
 export type { PluginManager } from './plugins/manager.ts';
 export type { AddonovaPlugin } from './plugins/types.ts';
+export {
+  HOOK_NAMES,
+} from './hooks/types.ts';
+export type {
+  AddonovaHookMap,
+  AddonovaHookName,
+  AddonovaHooks,
+  BuildDoneHookPayload,
+  ConfigResolvedHookPayload,
+  DevReloadHookPayload,
+  EntrypointsHookPayload,
+  GeneratedAsset,
+  HookEntrypointOptions,
+  HookPayload,
+  HookRegistration,
+  ManifestGeneratedHookPayload,
+  PublicAssetsHookPayload,
+} from './hooks/types.ts';
+export {
+  HookManager,
+  createHookManager,
+  hookError,
+  toHookRegistrations,
+  validateHooks,
+} from './hooks/manager.ts';
+export {
+  defineAddonovaModule,
+} from './modules/types.ts';
+export type {
+  AddonovaModule,
+  AddonovaModuleContext,
+  AddonovaModuleHooks,
+  AddonovaModuleInput,
+  ModuleEntrypointOptions,
+  ModuleResolution,
+} from './modules/types.ts';
+export { resolveModules } from './modules/loader.ts';
+export type { ResolveModulesOptions } from './modules/loader.ts';
 
 export { guchhoAdapter } from './bundler/guchho.ts';
 export type {

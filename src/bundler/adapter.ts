@@ -38,6 +38,7 @@ export interface BundlerBuildInput {
   external?: readonly string[];
   loader?: Readonly<Record<string, string>>;
   metafile?: boolean;
+  write?: boolean;
 }
 
 export interface BundlerOutput {

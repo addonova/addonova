@@ -47,6 +47,7 @@ export interface CliOptions {
   force?: boolean;
   offline?: boolean;
   verbose: boolean;
+  debug: boolean;
   noColor: boolean;
   help: boolean;
   version: boolean;
@@ -56,6 +57,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
   const options: CliOptions = {
     browsers: [],
     verbose: false,
+    debug: false,
     noColor: false,
     help: false,
     version: false,
@@ -160,6 +162,11 @@ function parseLongOption(
 
     case 'verbose': {
       options.verbose = parseBooleanValue(name, inlineValue, true);
+      return index + 1;
+    }
+
+    case 'debug': {
+      options.debug = parseBooleanValue(name, inlineValue, true);
       return index + 1;
     }
 

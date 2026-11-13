@@ -15,6 +15,22 @@ import type {
 } from '../launcher/types.ts';
 import { validatePlugins } from '../plugins/manager.ts';
 import type { AddonovaPlugin } from '../plugins/types.ts';
+import {
+  createHookManager,
+  toHookRegistrations,
+  validateHooks,
+} from '../hooks/manager.ts';
+import type {
+  AddonovaHooks,
+  EntrypointsHookPayload,
+  HookEntrypointOptions,
+  HookRegistration,
+} from '../hooks/types.ts';
+import { resolveModules } from '../modules/loader.ts';
+import type {
+  AddonovaModule,
+  AddonovaModuleInput,
+} from '../modules/types.ts';
 import { loadConfigModule } from './config-module.ts';
 import { AddonovaError } from './errors.ts';
 import {
@@ -23,6 +39,7 @@ import {
   detectEntrypointKind,
   discoverEntrypoints,
   isEntrypointType,
+  resolveEntrypointDefinition,
 } from './entrypoints.ts';
 import type {
   EntrypointManifestOptions,
@@ -87,12 +104,21 @@ export type ManifestInput =
       context: ManifestContext,
     ) => Readonly<Record<string, unknown>>);
 
+export interface AddonovaSourcesPackConfig {
+  include?: readonly string[];
+  exclude?: readonly string[];
+  root?: string;
+}
+
 export interface AddonovaPackConfig {
   outFile?: string;
   format?: ArchiveFormat;
   level?: number;
   overwrite?: boolean;
   deterministic?: boolean;
+  include?: readonly string[];
+  exclude?: readonly string[];
+  sources?: boolean | AddonovaSourcesPackConfig;
 }
 
 export interface AddonovaBrowserApiConfig {
@@ -122,6 +148,8 @@ export interface AddonovaUserConfig {
   browserApi?: BrowserApiMode | AddonovaBrowserApiConfig;
   webExt?: WebExtConfig;
   plugins?: readonly AddonovaPlugin[];
+  modules?: readonly AddonovaModuleInput[];
+  hooks?: AddonovaHooks;
   pack?: AddonovaPackConfig;
 }
 
@@ -140,12 +168,21 @@ export interface ResolvedBrowser {
   manifestOverrides: Readonly<Record<string, unknown>>;
 }
 
+export interface ResolvedSourcesPackConfig {
+  include: readonly string[];
+  exclude: readonly string[];
+  root: string;
+}
+
 export interface ResolvedPackConfig {
   outFile: string | null;
   format: ArchiveFormat;
   level?: number;
   overwrite: boolean;
   deterministic: boolean;
+  include: readonly string[];
+  exclude: readonly string[];
+  sources: ResolvedSourcesPackConfig | null;
 }
 
 export interface ResolvedConfig {
@@ -166,6 +203,10 @@ export interface ResolvedConfig {
   browserApi: ResolvedBrowserApiConfig;
   webExt: ResolvedWebExtConfig;
   plugins: readonly AddonovaPlugin[];
+  modules?: readonly AddonovaModule[];
+  moduleFiles?: readonly string[];
+  alias?: Readonly<Record<string, string>>;
+  hookRegistrations?: readonly HookRegistration[];
   pack: ResolvedPackConfig;
 }
 
@@ -268,13 +309,166 @@ export async function resolveProjectConfig(
     ...(options.homeDir === undefined ? {} : { homeDir: options.homeDir }),
   });
   const mergedConfig: AddonovaUserConfig = { ...userConfig, webExt };
-
-  return normalizeConfig(mergedConfig, {
+  const mode =
+    options.overrides?.mode ?? userConfig.mode ?? options.defaultMode ?? 'production';
+  const hookManager = createHookManager();
+  const moduleResolution = await resolveModules({
+    root,
+    configPath,
+    config: userConfig,
+    mode,
+    hooks: hookManager,
+  });
+  const normalized = normalizeConfig(mergedConfig, {
     cwd: options.cwd,
     configPath,
     ...(options.overrides === undefined ? {} : { overrides: options.overrides }),
     ...(options.defaultMode === undefined ? {} : { defaultMode: options.defaultMode }),
   });
+
+  hookManager.addAll(normalized.hookRegistrations ?? []);
+
+  const entrypoints = mergeModuleEntrypoints(
+    normalized.entrypoints,
+    moduleResolution.entrypoints,
+    configPath,
+  );
+  const resolved: ResolvedConfig = {
+    ...normalized,
+    entrypoints,
+    ...(Object.keys(moduleResolution.alias).length === 0
+      ? {}
+      : { alias: moduleResolution.alias }),
+    ...(moduleResolution.modules.length === 0
+      ? {}
+      : { modules: moduleResolution.modules }),
+    ...(moduleResolution.files.length === 0
+      ? {}
+      : { moduleFiles: moduleResolution.files }),
+    ...hookRegistrationsField(hookManager.registrations),
+  };
+
+  await hookManager.run('config:resolved', { config: resolved });
+
+  const resolvedEntrypoints = [...resolved.entrypoints];
+  const hookConfig: ResolvedConfig = {
+    ...resolved,
+    entrypoints: resolvedEntrypoints,
+  };
+
+  await hookManager.run(
+    'entrypoints:found',
+    createEntrypointsHookPayload(hookConfig, resolvedEntrypoints, configPath),
+  );
+  await hookManager.run(
+    'entrypoints:resolved',
+    createEntrypointsHookPayload(hookConfig, resolvedEntrypoints, configPath),
+  );
+  assertUniqueEntrypointNames(resolvedEntrypoints, configPath);
+
+  return hookConfig;
+}
+
+function mergeModuleEntrypoints(
+  entrypoints: readonly ResolvedEntrypoint[],
+  moduleEntrypoints: readonly ResolvedEntrypoint[],
+  configPath: string | null,
+): ResolvedEntrypoint[] {
+  const merged = [...entrypoints];
+
+  for (const entrypoint of moduleEntrypoints) {
+    if (merged.some((existing) => existing.name === entrypoint.name)) {
+      throw configError(
+        'ADDONOVA_CONFIG_DUPLICATE_ENTRYPOINT',
+        `Duplicate entrypoint name "${entrypoint.name}".`,
+        'Give every entrypoint a unique name.',
+        configPath,
+      );
+    }
+
+    merged.push(entrypoint);
+  }
+
+  return merged;
+}
+
+function createEntrypointsHookPayload(
+  config: ResolvedConfig,
+  entrypoints: ResolvedEntrypoint[],
+  configPath: string | null,
+): EntrypointsHookPayload {
+  return {
+    config,
+    entrypoints,
+    addEntrypoint(name, input, options?: HookEntrypointOptions) {
+      if (entrypoints.some((entrypoint) => entrypoint.name === name)) {
+        throw configError(
+          'ADDONOVA_CONFIG_DUPLICATE_ENTRYPOINT',
+          `Duplicate entrypoint name "${name}".`,
+          'Give every entrypoint a unique name.',
+          configPath,
+        );
+      }
+
+      const descriptor = resolveEntrypointDefinition({
+        root: config.root,
+        name,
+        input,
+        selection: options ?? {},
+        configPath,
+      });
+      const resolved: ResolvedEntrypoint = {
+        name,
+        input: descriptor.input,
+        kind: descriptor.kind,
+      };
+
+      if (
+        options?.type !== undefined ||
+        Object.keys(descriptor.manifestOptions).length > 0
+      ) {
+        resolved.type = descriptor.type;
+        resolved.manifestOptions = descriptor.manifestOptions;
+      }
+
+      entrypoints.push(resolved);
+
+      return resolved;
+    },
+    removeEntrypoint(name) {
+      const index = entrypoints.findIndex(
+        (entrypoint) => entrypoint.name === name,
+      );
+
+      if (index === -1) {
+        return false;
+      }
+
+      entrypoints.splice(index, 1);
+
+      return true;
+    },
+  };
+}
+
+function assertUniqueEntrypointNames(
+  entrypoints: readonly ResolvedEntrypoint[],
+  configPath: string | null,
+): void {
+  const names = new Set<string>();
+
+  for (const entrypoint of entrypoints) {
+    if (names.has(entrypoint.name)) {
+      throw configError(
+        'ADDONOVA_CONFIG_DUPLICATE_ENTRYPOINT',
+        `Duplicate entrypoint name "${entrypoint.name}".`,
+        'Give every entrypoint a unique name.',
+        configPath,
+      );
+    }
+
+    names.add(entrypoint.name);
+  }
 }
 
 export function normalizeConfig(
@@ -347,8 +541,20 @@ export function normalizeConfig(
       userConfig.plugins,
       configPath === null ? undefined : { file: configPath },
     ),
+    ...hookRegistrationsField(
+      toHookRegistrations(
+        'config',
+        validateHooks(userConfig.hooks, configPath),
+      ),
+    ),
     pack: normalizePack(userConfig.pack, root, configPath),
   };
+}
+
+function hookRegistrationsField(
+  registrations: readonly HookRegistration[],
+): { hookRegistrations?: readonly HookRegistration[] } {
+  return registrations.length === 0 ? {} : { hookRegistrations: registrations };
 }
 
 function validateConfigValues(config: AddonovaUserConfig, configPath: string | null): void {
@@ -435,6 +641,15 @@ function validateConfigValues(config: AddonovaUserConfig, configPath: string | n
       'ADDONOVA_CONFIG_PACK',
       'Config "pack" must be an object.',
       'Use { format: "zip", overwrite: false }.',
+      configPath,
+    );
+  }
+
+  if (config.modules !== undefined && !Array.isArray(config.modules)) {
+    throw configError(
+      'ADDONOVA_CONFIG_MODULES',
+      'Config "modules" must be an array.',
+      'Use modules: ["addonova-module-example"] or a module object.',
       configPath,
     );
   }
@@ -591,7 +806,113 @@ function normalizePack(
     ...(pack.level === undefined ? {} : { level: pack.level }),
     overwrite: pack.overwrite ?? false,
     deterministic: pack.deterministic ?? false,
+    include: normalizePackPatterns(
+      pack.include,
+      'pack.include',
+      configPath,
+    ) ?? ['**/*'],
+    exclude: normalizePackPatterns(
+      pack.exclude,
+      'pack.exclude',
+      configPath,
+    ) ?? [],
+    sources: normalizePackSources(pack.sources, root, configPath),
   };
+}
+
+function normalizePackSources(
+  rawSources: boolean | AddonovaSourcesPackConfig | undefined,
+  root: string,
+  configPath: string | null,
+): ResolvedSourcesPackConfig | null {
+  if (rawSources === undefined || rawSources === false) {
+    return null;
+  }
+
+  if (rawSources === true) {
+    return {
+      include: ['**/*'],
+      exclude: [],
+      root,
+    };
+  }
+
+  if (!isPlainObject(rawSources)) {
+    throw configError(
+      'ADDONOVA_CONFIG_PACK',
+      'Config "pack.sources" must be true, false, or an object.',
+      'Use true or { include, exclude, root }.',
+      configPath,
+    );
+  }
+
+  if (rawSources.root !== undefined && !isNonEmptyString(rawSources.root)) {
+    throw configError(
+      'ADDONOVA_CONFIG_PACK',
+      'Config "pack.sources.root" must be a non-empty string.',
+      'Use a directory path such as ".".',
+      configPath,
+    );
+  }
+
+  return {
+    include: normalizePackPatterns(
+      rawSources.include,
+      'pack.sources.include',
+      configPath,
+    ) ?? ['**/*'],
+    exclude: normalizePackPatterns(
+      rawSources.exclude,
+      'pack.sources.exclude',
+      configPath,
+    ) ?? [],
+    root: path.resolve(root, rawSources.root ?? '.'),
+  };
+}
+
+function normalizePackPatterns(
+  value: readonly string[] | undefined,
+  field: string,
+  configPath: string | null,
+): readonly string[] | null {
+  if (value === undefined) {
+    return null;
+  }
+
+  if (!Array.isArray(value)) {
+    throw configError(
+      'ADDONOVA_CONFIG_PACK',
+      `Config "${field}" must be an array of glob patterns.`,
+      'Use patterns such as ["**/*", "!node_modules"].',
+      configPath,
+    );
+  }
+
+  const patterns: string[] = [];
+
+  for (const pattern of value) {
+    if (!isNonEmptyString(pattern)) {
+      throw configError(
+        'ADDONOVA_CONFIG_PACK',
+        `Config "${field}" entries must be non-empty strings.`,
+        'Use glob patterns such as "**/*.map".',
+        configPath,
+      );
+    }
+
+    if (path.isAbsolute(pattern) || path.posix.isAbsolute(pattern)) {
+      throw configError(
+        'ADDONOVA_CONFIG_PACK',
+        `Config "${field}" entries must be relative glob patterns.`,
+        'Use a pattern such as "assets/**" instead of an absolute path.',
+        configPath,
+      );
+    }
+
+    patterns.push(pattern);
+  }
+
+  return patterns;
 }
 
 function normalizeManifest(

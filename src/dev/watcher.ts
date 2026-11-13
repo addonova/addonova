@@ -22,6 +22,7 @@ import {
   copyPublicDirectory,
   getOutputDirectory,
   toBundlerBuildInput,
+  writeGeneratedAssets,
 } from '../core/build.ts';
 import { CONFIG_FILENAMES } from '../core/config.ts';
 import type { ResolvedBrowser, ResolvedConfig } from '../core/config.ts';
@@ -31,11 +32,16 @@ import { createBrowserLauncher } from '../launcher/launcher.ts';
 import type { BrowserLauncher } from '../launcher/types.ts';
 import { collectContentScriptCss } from '../browser/content-css.ts';
 import { buildManifest, writeManifest } from '../browser/manifest.ts';
+import { applyDevManifestAdditions, DevReloadServer } from './browser.ts';
+import { injectDevReloadClient } from './reload-client.ts';
 import {
   createPluginManager,
   mergePluginDiagnostics,
 } from '../plugins/manager.ts';
 import type { PluginManager } from '../plugins/manager.ts';
+import { createHookManager } from '../hooks/manager.ts';
+import type { HookManager } from '../hooks/manager.ts';
+import type { GeneratedAsset } from '../hooks/types.ts';
 import type { CliIo } from '../cli/command.ts';
 import { formatDiagnostic } from '../cli/format.ts';
 import { formatDuration, getCliStyle, SYMBOLS } from '../cli/style.ts';
@@ -83,6 +89,7 @@ export interface DevSessionOptions {
   watcherFactory?: DevWatcherFactory;
   reloadConfig?: () => Promise<ResolvedConfig>;
   launcherFactory?: BrowserLauncherFactory;
+  debug?: boolean;
 }
 
 interface ActiveTarget {
@@ -155,6 +162,10 @@ export function classifyChange(file: string, config: ResolvedConfig): ChangeKind
     return 'config';
   }
 
+  if (config.moduleFiles?.some((file) => samePath(resolved, file))) {
+    return 'config';
+  }
+
   if (
     [...CONFIG_FILENAMES, ...WEB_EXT_CONFIG_FILENAMES].some(
       (candidate) => candidate.toLowerCase() === fileName,
@@ -201,10 +212,13 @@ export class DevSession {
   private readonly adapter: BundlerAdapter;
   private readonly baseTransforms: readonly BundlerTransform[] | undefined;
   private pluginManager: PluginManager;
+  private hookManager: HookManager;
   private readonly debounceMs: number;
   private readonly watcherFactory: DevWatcherFactory;
   private readonly reloadConfig: () => Promise<ResolvedConfig>;
   private readonly launcherFactory: BrowserLauncherFactory;
+  private readonly debugEnabled: boolean;
+  private reloadServer: DevReloadServer | null = null;
   private targetSet: TargetSet | null = null;
   private watcher: DevWatcher | null = null;
   private timer: NodeJS.Timeout | null = null;
@@ -222,7 +236,9 @@ export class DevSession {
     this.adapter = options.adapter ?? guchhoAdapter;
     this.baseTransforms = options.transforms;
     this.pluginManager = createPluginManager(options.config.plugins);
+    this.hookManager = createHookManager(options.config.hookRegistrations);
     this.debounceMs = options.debounceMs ?? DEFAULT_DEBOUNCE_MS;
+    this.debugEnabled = options.debug ?? false;
     this.watcherFactory = options.watcherFactory ?? createChokidarWatcher;
     this.reloadConfig =
       options.reloadConfig ??
@@ -277,6 +293,13 @@ export class DevSession {
       }
     });
 
+    this.debug('dev.watch.started', {
+      paths: this.getWatchPaths(),
+      debounceMs: this.debounceMs,
+    });
+
+    await this.startReloadServer();
+
     await this.runPluginHooks(async () => {
       this.targetSet = await this.createTargetSet(
         this.config,
@@ -290,6 +313,39 @@ export class DevSession {
         this.config.root,
       )} for changes. Press Ctrl+C to stop.\n`,
     );
+
+    const reloadUrl = this.getDevReloadUrl();
+
+    if (reloadUrl !== null) {
+      this.io.stdout.write(
+        `${this.style.cyan(SYMBOLS.info)} Dev reload client: ${this.style.dim(
+          reloadUrl,
+        )}\n`,
+      );
+    }
+  }
+
+  private async startReloadServer(): Promise<void> {
+    const server = new DevReloadServer({
+      onConnection: (connections) => {
+        this.debug('dev.reload.connection', { connections });
+      },
+      onError: (error) => {
+        this.debug('dev.reload.server.error', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      },
+    });
+
+    try {
+      const url = await server.start();
+
+      this.reloadServer = server;
+      this.debug('dev.reload.server.started', { url });
+    } catch (error) {
+      await server.close().catch(() => undefined);
+      this.printError(error);
+    }
   }
 
   handleFileChange(file: string): void {
@@ -299,6 +355,8 @@ export class DevSession {
 
     const kind = classifyChange(file, this.config);
     const relative = path.relative(this.config.root, path.resolve(file));
+
+    this.debug('dev.change', { kind, file: relative.split(path.sep).join('/') });
 
     this.io.stdout.write(
       `${this.style.cyan(SYMBOLS.info)} Change detected (${this.style.yellow(
@@ -351,6 +409,17 @@ export class DevSession {
       this.targetSet = null;
     }
 
+    const reloadServer = this.reloadServer;
+    this.reloadServer = null;
+
+    if (reloadServer !== null) {
+      await reloadServer.close().catch((error: unknown) => {
+        this.printError(error);
+      });
+    }
+
+    this.debug('dev.session.closed', {});
+
     try {
       await this.adapter.dispose?.();
     } finally {
@@ -393,21 +462,38 @@ export class DevSession {
     }
 
     this.rebuilding = true;
+    const started = Date.now();
 
     try {
       const reloadRequested = this.configDirty;
       this.configDirty = false;
 
+      this.debug('dev.rebuild.start', { reloadConfig: reloadRequested });
+
       if (reloadRequested) {
         const reloaded = await this.reloadAndRecreate();
 
         if (!reloaded) {
+          this.debug('dev.rebuild.aborted', { reason: 'config' });
           return;
         }
       }
 
       try {
-        await this.runPluginHooks(() => this.rebuildTargets('change'));
+        const summary = await this.runPluginHooks(() =>
+          this.rebuildTargets('change'),
+        );
+        const duration = Date.now() - started;
+
+        this.debug('dev.rebuild.cycle', { duration, ...summary });
+
+        if (!this.closed && this.targetSet !== null) {
+          this.io.stdout.write(
+            `${this.style.dim(
+              `Rebuild finished in ${formatDuration(duration)} (${summary.succeeded}/${summary.total} targets).`,
+            )}\n`,
+          );
+        }
       } catch (error) {
         this.printError(error);
       }
@@ -434,10 +520,12 @@ export class DevSession {
     }
 
     let nextManager: PluginManager;
+    let nextHooks: HookManager;
     let nextSet: TargetSet;
 
     try {
       nextManager = createPluginManager(nextConfig.plugins);
+      nextHooks = createHookManager(nextConfig.hookRegistrations);
       nextSet = await this.createTargetSet(nextConfig, [
         ...nextManager.transforms,
         ...(this.baseTransforms ?? []),
@@ -451,6 +539,7 @@ export class DevSession {
 
     this.config = nextConfig;
     this.pluginManager = nextManager;
+    this.hookManager = nextHooks;
     this.targetSet = nextSet;
 
     if (previousSet !== null) {
@@ -463,6 +552,11 @@ export class DevSession {
       )}\n`,
     );
 
+    this.debug('dev.config.reloaded', {
+      configPath: this.config.configPath,
+      browsers: this.config.browsers.map((browser) => browser.target),
+    });
+
     return true;
   }
 
@@ -470,11 +564,11 @@ export class DevSession {
     return [...this.pluginManager.transforms, ...(this.baseTransforms ?? [])];
   }
 
-  private async runPluginHooks(run: () => Promise<void>): Promise<void> {
+  private async runPluginHooks<T>(run: () => Promise<T>): Promise<T> {
     await this.pluginManager.buildStart();
 
     try {
-      await run();
+      return await run();
     } finally {
       await this.pluginManager.buildEnd();
     }
@@ -538,22 +632,30 @@ export class DevSession {
     return { generation, root, targets };
   }
 
-  private async rebuildTargets(reason: 'initial' | 'change'): Promise<void> {
+  private async rebuildTargets(
+    reason: 'initial' | 'change',
+  ): Promise<{ total: number; succeeded: number }> {
     const targetSet = this.targetSet;
 
     if (targetSet === null || this.closed) {
-      return;
+      return { total: 0, succeeded: 0 };
     }
 
+    let succeeded = 0;
+
     for (const target of targetSet.targets) {
-      await this.rebuildTarget(target, reason);
+      if (await this.rebuildTarget(target, reason)) {
+        succeeded += 1;
+      }
     }
+
+    return { total: targetSet.targets.length, succeeded };
   }
 
   private async rebuildTarget(
     target: ActiveTarget,
     reason: 'initial' | 'change',
-  ): Promise<void> {
+  ): Promise<boolean> {
     const started = Date.now();
     let result: BundlerBuildResult;
 
@@ -561,7 +663,7 @@ export class DevSession {
       result = await target.context.rebuild();
     } catch (error) {
       this.printError(error);
-      return;
+      return false;
     }
 
     result = mergePluginDiagnostics(
@@ -583,7 +685,7 @@ export class DevSession {
           target.browser.target,
         )} MV${target.browser.manifestVersion}; keeping the last successful output.\n`,
       );
-      return;
+      return false;
     }
 
     try {
@@ -602,9 +704,20 @@ export class DevSession {
         this.io.stderr.write(`${formatDiagnostic(warning, this.style)}\n`);
       }
 
+      const assets: GeneratedAsset[] = [];
+
+      await this.hookManager.run('build:publicAssets', {
+        config: this.config,
+        browser: target.browser,
+        outdir: target.staging,
+        assets,
+      });
+
+      const generatedAssets = writeGeneratedAssets(target.staging, assets);
       const availableFiles = new Set([
         ...generated,
         ...publicCopy.copied,
+        ...generatedAssets,
         'manifest.json',
       ]);
       const builtManifest = buildManifest(this.config.manifest, target.browser, {
@@ -624,17 +737,57 @@ export class DevSession {
         }),
       });
 
-      for (const diagnostic of builtManifest.diagnostics) {
+      const manifestDiagnostics = [...builtManifest.diagnostics];
+
+      await this.hookManager.run('build:manifestGenerated', {
+        config: this.config,
+        browser: target.browser,
+        manifest: builtManifest.manifest,
+        diagnostics: manifestDiagnostics,
+      });
+
+      for (const diagnostic of manifestDiagnostics) {
         this.io.stderr.write(`${formatDiagnostic(diagnostic, this.style)}\n`);
       }
 
-      if (builtManifest.hasErrors) {
+      if (
+        manifestDiagnostics.some(
+          (diagnostic) => diagnostic.severity === 'error',
+        )
+      ) {
         this.io.stderr.write(
           `${this.style.red(SYMBOLS.error)} Dev build failed for ${this.style.cyan(
             target.browser.target,
           )} MV${target.browser.manifestVersion}; keeping the last successful output.\n`,
         );
-        return;
+        return false;
+      }
+
+      const reloadUrl = this.getDevReloadUrl();
+
+      if (reloadUrl !== null) {
+        applyDevManifestAdditions(builtManifest.manifest, {
+          manifestVersion: target.browser.manifestVersion,
+        });
+
+        const injection = injectDevReloadClient({
+          manifest: builtManifest.manifest,
+          staging: target.staging,
+          url: reloadUrl,
+        });
+
+        for (const warning of injection.warnings) {
+          this.io.stderr.write(`${formatDiagnostic(warning, this.style)}\n`);
+        }
+
+        for (const file of injection.files) {
+          availableFiles.add(file);
+        }
+
+        this.debug('dev.reload.injected', {
+          target: target.browser.target,
+          files: injection.files,
+        });
       }
 
       writeManifest(target.staging, builtManifest.manifest);
@@ -656,15 +809,49 @@ export class DevSession {
         )} (${formatDuration(duration)}, ${result.outputs.length} outputs)\n`,
       );
 
-      await this.updateLauncher(target, reason);
+      this.debug('dev.build.success', {
+        target: target.browser.target,
+        reason,
+        duration,
+        outputs: result.outputs.length,
+        files: availableFiles.size,
+      });
+
+      if (reason === 'change') {
+        try {
+          await this.hookManager.run('dev:reload', {
+            config: this.config,
+            target: target.browser.target,
+            manifestVersion: target.browser.manifestVersion,
+            reason,
+          });
+        } catch (error) {
+          this.printError(error);
+        }
+      }
+
+      let delivered = 0;
+
+      if (reason === 'change' && reloadUrl !== null) {
+        delivered = this.reloadServer?.reload() ?? 0;
+        this.debug('dev.reload.broadcast', {
+          target: target.browser.target,
+          clients: delivered,
+        });
+      }
+
+      await this.updateLauncher(target, reason, delivered > 0);
+      return true;
     } catch (error) {
       this.printError(error);
+      return false;
     }
   }
 
   private async updateLauncher(
     target: ActiveTarget,
     reason: 'initial' | 'change',
+    reloadHandled = false,
   ): Promise<void> {
     const launcher = target.launcher;
 
@@ -675,8 +862,18 @@ export class DevSession {
     try {
       if (reason === 'initial' || !launcher.isRunning) {
         await launcher.launch();
-      } else {
+        this.debug('dev.launcher.launch', {
+          target: target.browser.target,
+          reason,
+        });
+      } else if (!reloadHandled) {
         await launcher.reload();
+        this.debug('dev.launcher.reload', { target: target.browser.target });
+      } else {
+        this.debug('dev.launcher.reload.skipped', {
+          target: target.browser.target,
+          reason: 'reload-client',
+        });
       }
     } catch (error) {
       this.printLauncherWarning(error);
@@ -705,6 +902,28 @@ export class DevSession {
     }
 
     rmSync(targetSet.root, { recursive: true, force: true });
+  }
+
+  private getDevReloadUrl(): string | null {
+    if (this.config.mode !== 'development' || this.config.webExt.disabled) {
+      return null;
+    }
+
+    return this.reloadServer?.url ?? null;
+  }
+
+  private debug(event: string, details: Record<string, unknown>): void {
+    if (!this.debugEnabled) {
+      return;
+    }
+
+    this.io.stderr.write(
+      `${JSON.stringify({
+        event,
+        time: new Date().toISOString(),
+        ...details,
+      })}\n`,
+    );
   }
 
   private getWatchPaths(): readonly string[] {

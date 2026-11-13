@@ -18,6 +18,7 @@ export async function devCommand(context: CommandContext): Promise<number> {
   const session = await createDevSession({
     config: context.config,
     io: context.io,
+    debug: context.options.debug,
     ...(context.reloadConfig === undefined
       ? {}
       : { reloadConfig: context.reloadConfig }),

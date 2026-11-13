@@ -134,6 +134,10 @@ export function toGuchhoOptions(input: BundlerBuildInput): BuildOptions {
     options.loader = { ...input.loader } as NonNullable<BuildOptions['loader']>;
   }
 
+  if (input.write !== undefined) {
+    options.write = input.write;
+  }
+
   return options;
 }
 

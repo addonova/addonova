@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 
@@ -29,7 +30,10 @@ import {
   createPluginManager,
   mergePluginDiagnostics,
 } from '../plugins/manager.ts';
+import { AddonovaError } from './errors.ts';
 import type { Diagnostic } from './errors.ts';
+import { createHookManager } from '../hooks/manager.ts';
+import type { GeneratedAsset } from '../hooks/types.ts';
 import type {
   ResolvedBrowser,
   ResolvedConfig,
@@ -58,6 +62,7 @@ export async function buildProject(
 ): Promise<readonly ProjectBuildResult[]> {
   const adapter = options.adapter ?? guchhoAdapter;
   const pluginManager = createPluginManager(config.plugins);
+  const hookManager = createHookManager(config.hookRegistrations);
   const transforms = [
     ...pluginManager.transforms,
     ...(options.transforms ?? []),
@@ -84,7 +89,19 @@ export async function buildProject(
       const publicCopy = result.success
         ? copyPublicDirectory(config.publicDir, outdir)
         : { copied: [], warnings: [] };
-      const builtManifest = result.success
+      const assets: GeneratedAsset[] = [];
+
+      if (result.success) {
+        await hookManager.run('build:publicAssets', {
+          config,
+          browser,
+          outdir,
+          assets,
+        });
+        writeGeneratedAssets(outdir, assets);
+      }
+
+      let builtManifest = result.success
         ? buildManifest(config.manifest, browser, {
             outdir,
             checkFiles: true,
@@ -102,6 +119,26 @@ export async function buildProject(
             }),
           })
         : null;
+
+      if (builtManifest !== null) {
+        const diagnostics = [...builtManifest.diagnostics];
+
+        await hookManager.run('build:manifestGenerated', {
+          config,
+          browser,
+          manifest: builtManifest.manifest,
+          diagnostics,
+        });
+
+        builtManifest = {
+          manifest: builtManifest.manifest,
+          diagnostics,
+          hasErrors: diagnostics.some(
+            (diagnostic) => diagnostic.severity === 'error',
+          ),
+        };
+      }
+
       const manifestPath =
         builtManifest !== null && !builtManifest.hasErrors
           ? writeManifest(outdir, builtManifest.manifest)
@@ -117,6 +154,8 @@ export async function buildProject(
         manifestDiagnostics: builtManifest?.diagnostics ?? [],
       });
     }
+
+    await hookManager.run('build:done', { config, reports });
 
     return reports;
   } finally {
@@ -154,6 +193,10 @@ export function toBundlerBuildInput(
     ...browserApi.define,
     ...toImportMetaEnvDefines(env),
   };
+  const alias = {
+    ...(config.alias ?? {}),
+    ...browserApi.alias,
+  };
 
   return {
     root: config.root,
@@ -172,9 +215,7 @@ export function toBundlerBuildInput(
     minifyHtml: config.minify,
     sourcemap: config.sourcemap,
     metafile: true,
-    ...(Object.keys(browserApi.alias).length === 0
-      ? {}
-      : { alias: browserApi.alias }),
+    ...(Object.keys(alias).length === 0 ? {} : { alias }),
     ...(Object.keys(define).length === 0 ? {} : { define }),
     external: [...browserApi.external],
     ...(transforms === undefined ? {} : { transforms }),
@@ -218,6 +259,51 @@ export function getEntrypointOutputName(entrypoint: ResolvedEntrypoint): string 
   return entrypoint.name.endsWith('.html')
     ? entrypoint.name
     : `${entrypoint.name}.html`;
+}
+
+export function writeGeneratedAssets(
+  outdir: string,
+  assets: readonly GeneratedAsset[],
+): readonly string[] {
+  const written: string[] = [];
+
+  for (const asset of assets) {
+    const normalized = asset.path.replaceAll('\\', '/');
+
+    if (
+      normalized.trim() === '' ||
+      path.isAbsolute(normalized) ||
+      path.posix.isAbsolute(normalized) ||
+      normalized.split('/').includes('..')
+    ) {
+      throw new AddonovaError({
+        code: 'ADDONOVA_GENERATED_ASSET_INVALID',
+        severity: 'error',
+        message: `Generated asset path "${asset.path}" is not a relative output path.`,
+        suggestion:
+          'Use a relative path inside the output directory, such as "generated/config.json".',
+      });
+    }
+
+    const target = path.resolve(outdir, normalized);
+    const relative = path.relative(outdir, target);
+
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+      throw new AddonovaError({
+        code: 'ADDONOVA_GENERATED_ASSET_INVALID',
+        severity: 'error',
+        message: `Generated asset path "${asset.path}" escapes the output directory.`,
+        suggestion:
+          'Use a relative path inside the output directory, such as "generated/config.json".',
+      });
+    }
+
+    mkdirSync(path.dirname(target), { recursive: true });
+    writeFileSync(target, asset.contents);
+    written.push(normalized);
+  }
+
+  return written;
 }
 
 export interface PublicCopyResult {

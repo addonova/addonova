@@ -25,6 +25,7 @@ Options:
   --no-sourcemap             Disable source maps
   --browser-api <mode>       Browser API integration: external or bundle
   --verbose                  Show additional error details
+  --debug                    Emit structured dev diagnostics to stderr
   --no-color                 Disable colored output
   -h, --help                 Show this help
   -V, --version              Show the Addonova version
