@@ -1,4 +1,5 @@
 import { statSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 import {
@@ -6,8 +7,8 @@ import {
   supportsManifestVersion,
 } from '../browser/targets.ts';
 import {
+  mergeWebExtConfig,
   normalizeWebExtConfig,
-  resolveWebExtConfig,
 } from '../launcher/config.ts';
 import type {
   ResolvedWebExtConfig,
@@ -261,12 +262,10 @@ export function findConfigFile(startDir: string, explicitPath?: string): string 
   let directory = cwd;
 
   while (true) {
-    for (const filename of CONFIG_FILENAMES) {
-      const candidate = path.join(directory, filename);
+    const configFile = findConfigFileInDirectory(directory);
 
-      if (isFile(candidate)) {
-        return candidate;
-      }
+    if (configFile !== null) {
+      return configFile;
     }
 
     const parent = path.dirname(directory);
@@ -277,6 +276,18 @@ export function findConfigFile(startDir: string, explicitPath?: string): string 
 
     directory = parent;
   }
+}
+
+function findConfigFileInDirectory(directory: string): string | null {
+  for (const filename of CONFIG_FILENAMES) {
+    const candidate = path.join(directory, filename);
+
+    if (isFile(candidate)) {
+      return candidate;
+    }
+  }
+
+  return null;
 }
 
 export async function loadConfig(configPath: string): Promise<AddonovaUserConfig> {
@@ -304,10 +315,15 @@ export async function resolveProjectConfig(
   const configPath = findConfigFile(options.cwd, options.explicitConfigPath);
   const userConfig = configPath === null ? {} : await loadConfig(configPath);
   const root = configPath === null ? path.resolve(options.cwd) : path.dirname(configPath);
-  const webExt = await resolveWebExtConfig(userConfig.webExt, {
-    root,
-    ...(options.homeDir === undefined ? {} : { homeDir: options.homeDir }),
-  });
+  const homeDir = options.homeDir ?? os.homedir();
+  const globalConfigPath = findConfigFileInDirectory(
+    path.join(homeDir, '.addonova'),
+  );
+  const globalConfig =
+    globalConfigPath === null
+      ? {}
+      : await loadConfig(globalConfigPath);
+  const webExt = mergeWebExtConfig(globalConfig.webExt, userConfig.webExt);
   const mergedConfig: AddonovaUserConfig = { ...userConfig, webExt };
   const mode =
     options.overrides?.mode ?? userConfig.mode ?? options.defaultMode ?? 'production';
