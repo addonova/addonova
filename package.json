@@ -57,7 +57,7 @@
     "jiti": "^2.7.0"
   },
   "peerDependencies": {
-    "@addonova/browser": "^0.1.0"
+    "@addonova/browser": "^0.2.0"
   },
   "peerDependenciesMeta": {
     "@addonova/browser": {
