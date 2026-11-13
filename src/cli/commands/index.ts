@@ -7,7 +7,11 @@ import { infoCommand } from './info.ts';
 import { packCommand } from './pack.ts';
 import { validateCommand } from './validate.ts';
 
-export const commandHandlers: Readonly<Record<CommandName, CommandHandler>> = {
+export type ConfigCommandName = Exclude<CommandName, 'init'>;
+
+export const commandHandlers: Readonly<
+  Record<ConfigCommandName, CommandHandler>
+> = {
   build: buildCommand,
   dev: devCommand,
   clean: cleanCommand,
@@ -15,3 +19,6 @@ export const commandHandlers: Readonly<Record<CommandName, CommandHandler>> = {
   validate: validateCommand,
   pack: packCommand,
 };
+
+export { initCommand } from './init.ts';
+export type { InitCommandContext } from './init.ts';

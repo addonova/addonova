@@ -5,7 +5,7 @@ import { ADDONOVA_VERSION } from '../core/version.ts';
 import { parseArgs } from './args.ts';
 import type { CliOptions } from './args.ts';
 import type { CliIo } from './command.ts';
-import { commandHandlers } from './commands/index.ts';
+import { commandHandlers, initCommand } from './commands/index.ts';
 import { formatDiagnostic } from './format.ts';
 import { renderHelp } from './help.ts';
 import {
@@ -96,16 +96,20 @@ export async function runCli(
           ? {}
           : { explicitConfigPath: options.configPath }),
       });
-    const config = await resolveConfig();
-    const handler = commandHandlers[options.command];
-    const exitCode = await handler({
-      cwd: io.cwd,
-      options,
-      config,
-      io: commandIo,
-      reloadConfig: resolveConfig,
-      ...(runOptions.signal === undefined ? {} : { signal: runOptions.signal }),
-    });
+    const command = options.command;
+    const exitCode =
+      command === 'init'
+        ? await initCommand({ cwd: io.cwd, options, io: commandIo })
+        : await commandHandlers[command]({
+            cwd: io.cwd,
+            options,
+            config: await resolveConfig(),
+            io: commandIo,
+            reloadConfig: resolveConfig,
+            ...(runOptions.signal === undefined
+              ? {}
+              : { signal: runOptions.signal }),
+          });
 
     if (exitCode === 0) {
       if (options.command !== 'dev') {

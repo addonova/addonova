@@ -57,6 +57,24 @@ export type {
   CleanProjectResult,
 } from './core/clean.ts';
 export {
+  BUILTIN_TEMPLATES,
+  DEFAULT_TEMPLATE,
+  PACKAGE_MANAGERS,
+  TEMPLATE_LABELS,
+  detectPackageManager,
+  initProject,
+  isBuiltinTemplate,
+  isPackageManager,
+  resolveBuiltinTemplate,
+} from './core/init.ts';
+export type {
+  BuiltinTemplate,
+  InitProjectOptions,
+  InitProjectResult,
+  PackageManager,
+  TemplateDownloader,
+} from './core/init.ts';
+export {
   getArchivePath,
   packProject,
 } from './core/pack.ts';

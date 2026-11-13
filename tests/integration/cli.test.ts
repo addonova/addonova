@@ -34,6 +34,74 @@ describe('CLI runner', () => {
     expect(versionIo.stdout()).toMatch(/\d+\.\d+\.\d+/);
   });
 
+  it('scaffolds a project without loading a configuration', async () => {
+    const root = createProject({
+      'addonova.config.ts': 'throw new Error("init must not load this");\n',
+    });
+    const { io, stdout, stderr } = createIo(root);
+
+    const exitCode = await runCli(
+      ['init', 'app', '--template', 'vanilla-ts', '--no-git', '--offline'],
+      io,
+    );
+
+    expect(exitCode).toBe(0);
+    expect(stderr()).toBe('');
+    expect(stdout()).toContain('Scaffolded Vanilla TypeScript');
+    expect(stdout()).toContain('Next steps:');
+    expect(existsSync(path.join(root, 'app', 'addonova.config.ts'))).toBe(true);
+    expect(existsSync(path.join(root, 'app', '.git'))).toBe(false);
+  });
+
+  it('builds a generated vanilla-ts project', async () => {
+    const root = createProject({});
+    await initTemplate(root, 'app', 'vanilla-ts');
+    installAddonovaShim(path.join(root, 'app'));
+
+    const { io, stdout, stderr } = createIo(path.join(root, 'app'));
+    const exitCode = await runCli(['build', '--no-color'], io);
+
+    expect(exitCode).toBe(0);
+    expect(stderr()).toBe('');
+    expect(stdout()).toContain('Built chrome MV3');
+    expect(
+      existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
+    ).toBe(true);
+  }, 60_000);
+
+  it('builds a generated vanilla-js project', async () => {
+    const root = createProject({});
+    await initTemplate(root, 'app', 'vanilla-js');
+    installAddonovaShim(path.join(root, 'app'));
+
+    const { io, stdout, stderr } = createIo(path.join(root, 'app'));
+    const exitCode = await runCli(['build', '--no-color'], io);
+
+    expect(exitCode).toBe(0);
+    expect(stderr()).toBe('');
+    expect(stdout()).toContain('Built chrome MV3');
+    expect(
+      existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
+    ).toBe(true);
+  }, 60_000);
+
+  it('scaffolds and builds a generated react project', async () => {
+    const root = createProject({});
+    await initTemplate(root, 'app', 'react');
+    installAddonovaShim(path.join(root, 'app'));
+    installReactShim(path.join(root, 'app'));
+
+    const { io, stdout, stderr } = createIo(path.join(root, 'app'));
+    const exitCode = await runCli(['build', '--no-color'], io);
+
+    expect(exitCode).toBe(0);
+    expect(stderr()).toBe('');
+    expect(stdout()).toContain('Built chrome MV3');
+    expect(
+      existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
+    ).toBe(true);
+  }, 60_000);
+
   it('prints resolved configuration information', async () => {
     const root = createProject({
       'addonova.config.ts': `export default {
@@ -316,6 +384,63 @@ describe('CLI runner', () => {
     expect(stderr()).toContain('ADDONOVA_BUILD_NO_ENTRYPOINTS');
   });
 });
+
+async function initTemplate(
+  parent: string,
+  directory: string,
+  template: string,
+): Promise<void> {
+  const { io, stderr } = createIo(parent);
+  const exitCode = await runCli(
+    ['init', directory, '--template', template, '--no-git', '--offline'],
+    io,
+  );
+
+  expect(exitCode).toBe(0);
+  expect(stderr()).toBe('');
+}
+
+function installAddonovaShim(root: string): void {
+  writeModule(
+    root,
+    'addonova',
+    `export function defineConfig(config) {\n  return config;\n}\n`,
+  );
+}
+
+function installReactShim(root: string): void {
+  writeModule(
+    root,
+    'react',
+    `export function createElement() {\n  return {};\n}\nexport function useState(value) {\n  return [value, () => {}];\n}\nconst React = { createElement, useState };\nexport default React;\n`,
+  );
+  writeModule(
+    root,
+    'react/jsx-runtime',
+    `export function jsx() {\n  return {};\n}\nexport const jsxs = jsx;\nexport const Fragment = Symbol.for('react.fragment');\n`,
+  );
+  writeModule(
+    root,
+    'react/jsx-dev-runtime',
+    `export function jsxDEV() {\n  return {};\n}\nexport const Fragment = Symbol.for('react.fragment');\n`,
+  );
+  writeModule(
+    root,
+    'react-dom/client',
+    `export function createRoot() {\n  return { render() {} };\n}\n`,
+  );
+}
+
+function writeModule(root: string, name: string, source: string): void {
+  const directory = path.join(root, 'node_modules', ...name.split('/'));
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(
+    path.join(directory, 'package.json'),
+    JSON.stringify({ name, version: '0.0.0-test', type: 'module', main: 'index.js' }),
+    'utf8',
+  );
+  writeFileSync(path.join(directory, 'index.js'), source, 'utf8');
+}
 
 function createProject(files: Readonly<Record<string, string>>): string {
   const root = mkdtempSync(path.join(tmpdir(), 'addonova-cli-'));

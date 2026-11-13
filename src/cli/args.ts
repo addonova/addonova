@@ -1,4 +1,6 @@
 import { AddonovaError } from '../core/errors.ts';
+import { PACKAGE_MANAGERS, isPackageManager } from '../core/init.ts';
+import type { PackageManager } from '../core/init.ts';
 import {
   BROWSER_API_MODES,
   BROWSER_TARGETS,
@@ -16,7 +18,15 @@ import type {
   SourcemapOption,
 } from '../core/types.ts';
 
-export const COMMANDS = ['build', 'dev', 'clean', 'info', 'validate', 'pack'] as const;
+export const COMMANDS = [
+  'init',
+  'build',
+  'dev',
+  'clean',
+  'info',
+  'validate',
+  'pack',
+] as const;
 
 export type CommandName = (typeof COMMANDS)[number];
 
@@ -30,6 +40,12 @@ export interface CliOptions {
   minify?: boolean;
   sourcemap?: SourcemapOption;
   browserApi?: BrowserApiMode;
+  directory?: string;
+  template?: string;
+  packageManager?: PackageManager;
+  git?: boolean;
+  force?: boolean;
+  offline?: boolean;
   verbose: boolean;
   noColor: boolean;
   help: boolean;
@@ -65,7 +81,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
           break;
         }
 
-        assignCommand(options, value);
+        assignPositional(options, value);
         index += 1;
       }
 
@@ -84,6 +100,13 @@ export function parseArgs(argv: readonly string[]): CliOptions {
       continue;
     }
 
+    if (argument === '-t') {
+      const parsed = readValue('template', undefined, argv, index);
+      options.template = parsed.value;
+      index = parsed.nextIndex;
+      continue;
+    }
+
     if (argument.startsWith('--')) {
       index = parseLongOption(options, argv, index);
       continue;
@@ -97,7 +120,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
       );
     }
 
-    assignCommand(options, argument);
+    assignPositional(options, argument);
     index += 1;
   }
 
@@ -252,6 +275,44 @@ function parseLongOption(
       return parsed.nextIndex;
     }
 
+    case 'template': {
+      const parsed = readValue(name, inlineValue, argv, index);
+      options.template = parsed.value;
+      return parsed.nextIndex;
+    }
+
+    case 'pm': {
+      const parsed = readValue(name, inlineValue, argv, index);
+
+      if (!isPackageManager(parsed.value)) {
+        throw cliError(
+          'ADDONOVA_CLI_INVALID_VALUE',
+          `Invalid package manager "${parsed.value}".`,
+          `Use one of: ${PACKAGE_MANAGERS.join(', ')}.`,
+        );
+      }
+
+      options.packageManager = parsed.value;
+      return parsed.nextIndex;
+    }
+
+    case 'git':
+      options.git = parseBooleanValue(name, inlineValue, true);
+      return index + 1;
+
+    case 'no-git':
+      rejectInlineValue(name, inlineValue);
+      options.git = false;
+      return index + 1;
+
+    case 'force':
+      options.force = parseBooleanValue(name, inlineValue, true);
+      return index + 1;
+
+    case 'offline':
+      options.offline = parseBooleanValue(name, inlineValue, true);
+      return index + 1;
+
     default:
       throw cliError(
         'ADDONOVA_CLI_UNKNOWN_OPTION',
@@ -318,24 +379,32 @@ function rejectInlineValue(flag: string, inlineValue: string | undefined): void 
   }
 }
 
-function assignCommand(options: CliOptions, value: string): void {
-  if (!isCommandName(value)) {
-    throw cliError(
-      'ADDONOVA_CLI_UNKNOWN_COMMAND',
-      `Unknown command "${value}".`,
-      `Use one of: ${COMMANDS.join(', ')}.`,
-    );
+function assignPositional(options: CliOptions, value: string): void {
+  if (options.command === undefined) {
+    if (!isCommandName(value)) {
+      throw cliError(
+        'ADDONOVA_CLI_UNKNOWN_COMMAND',
+        `Unknown command "${value}".`,
+        `Use one of: ${COMMANDS.join(', ')}.`,
+      );
+    }
+
+    options.command = value;
+    return;
   }
 
-  if (options.command !== undefined) {
-    throw cliError(
-      'ADDONOVA_CLI_UNEXPECTED_ARGUMENT',
-      `Unexpected argument "${value}".`,
-      'Pass exactly one command.',
-    );
+  if (options.command === 'init' && options.directory === undefined && !isCommandName(value)) {
+    options.directory = value;
+    return;
   }
 
-  options.command = value;
+  throw cliError(
+    'ADDONOVA_CLI_UNEXPECTED_ARGUMENT',
+    `Unexpected argument "${value}".`,
+    options.command === 'init'
+      ? 'Pass at most one directory after "init".'
+      : 'Pass exactly one command.',
+  );
 }
 
 function missingValue(flag: string): AddonovaError {

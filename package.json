@@ -1,6 +1,6 @@
 {
   "name": "addonova",
-  "version": "1.2.0",
+  "version": "1.0.6",
   "description": "Next-gen browser extension framework",
   "type": "module",
   "bin": {
@@ -17,6 +17,7 @@
   },
   "files": [
     "dist",
+    "templates",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -30,9 +31,7 @@
     "clean": "remove-item dist --recursive --force",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "guchho-test run",
-    "test:watch": "guchho-test watch",
-    "phase0": "node scripts/phase0-smoke.mjs",
-    "acceptance": "node scripts/acceptance-smoke.mjs"
+    "test:watch": "guchho-test watch"
   },
   "keywords": [
     "browser-extension",
@@ -41,7 +40,7 @@
     "typescript",
     "addonova"
   ],
-  "author": "Hemanta Gayen",
+  "author": "CodeHemu",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -49,6 +48,7 @@
   },
   "dependencies": {
     "chokidar": "^4.0.3",
+    "giget": "^3.3.1",
     "guchho": "1.0.9",
     "jiti": "^2.7.0"
   },

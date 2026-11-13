@@ -1,0 +1,31 @@
+# Source (only compiled output in dist/ is published)
+src/
+tests/
+scripts/
+
+# Configs
+tsconfig.json
+tsconfig.build.json
+guchho.test.config.ts
+
+# Dev files
+node_modules/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+package-lock.json
+.git/
+.gitignore
+.gitattributes
+.github/
+.vscode/
+.idea/
+.editorconfig
+.npmrc
+
+# Planning / local
+demo/
+PLAN.md
+nul

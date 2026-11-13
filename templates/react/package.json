@@ -1,0 +1,23 @@
+{
+  "name": "__PROJECT_NAME__",
+  "private": true,
+  "version": "0.0.0",
+  "description": "A React browser extension built with Addonova.",
+  "type": "module",
+  "scripts": {
+    "dev": "addonova dev",
+    "build": "addonova build",
+    "pack": "addonova pack",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "addonova": "__ADDONOVA_VERSION__",
+    "typescript": "^5.9.3"
+  }
+}

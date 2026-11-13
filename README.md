@@ -239,8 +239,8 @@ Options:
 ### Terminal output
 
 Commands print an `Addonova <version>` header and end with a timed success or
-failure line. `build` and `dev` print a file tree with per-file sizes, WXT-style
-extension colors, and a total size. Colors and the spinner are enabled only when
+failure line. `build` and `dev` print a file tree with per-file sizes,
+per-extension colors, and a total size. Colors and the spinner are enabled only when
 stdout is a terminal. Set `NO_COLOR=1` to disable color, `FORCE_COLOR=1` to force
 it, or pass `--no-color` per command.
 
@@ -521,31 +521,6 @@ definition.
 - Manifest validation checks structure and referenced files, not full store
   policy compliance.
 
-## 16. Examples
-
-A complete working example lives in [`examples/basic`](examples/basic). It
-includes:
-
-- an HTML popup with TypeScript and CSS,
-- a background service worker,
-- a content script,
-- an imported SVG asset,
-- a `public/` icon referenced by the manifest.
-
-```bash
-npm run build
-node dist/cli/index.js --config examples/basic/addonova.config.ts build
-node dist/cli/index.js --config examples/basic/addonova.config.ts dev
-node dist/cli/index.js --config examples/basic/addonova.config.ts pack
-```
-
-The example is covered by an integration test that builds it and verifies its
-manifest and output files.
-
-A browser API integration example lives in
-[`examples/browser-api`](examples/browser-api). It uses bundle mode and requires
-`@addonova/browser` to be installed in the project.
-
-## 17. License
+## 16. License
 
 MIT

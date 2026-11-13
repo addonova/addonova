@@ -62,9 +62,67 @@ describe('CLI argument parsing', () => {
   });
 
   it('accepts all supported commands', () => {
-    for (const command of ['build', 'dev', 'clean', 'info', 'validate', 'pack']) {
+    for (const command of [
+      'init',
+      'build',
+      'dev',
+      'clean',
+      'info',
+      'validate',
+      'pack',
+    ]) {
       expect(parseArgs([command]).command).toBe(command);
     }
+  });
+
+  it('parses init positionals and flags', () => {
+    const options = parseArgs([
+      'init',
+      'demo-extension',
+      '-t',
+      'react',
+      '--pm',
+      'pnpm',
+      '--no-git',
+      '--force',
+      '--offline',
+    ]);
+
+    expect(options).toEqual({
+      command: 'init',
+      directory: 'demo-extension',
+      template: 'react',
+      packageManager: 'pnpm',
+      git: false,
+      force: true,
+      offline: true,
+      browsers: [],
+      verbose: false,
+      noColor: false,
+      help: false,
+      version: false,
+    });
+  });
+
+  it('parses init defaults, template long form, and git flags', () => {
+    const options = parseArgs(['init', '--template=vanilla']);
+
+    expect(options.command).toBe('init');
+    expect(options.directory).toBeUndefined();
+    expect(options.template).toBe('vanilla');
+    expect(parseArgs(['init', '--git']).git).toBe(true);
+    expect(parseArgs(['init', '--no-git']).git).toBe(false);
+  });
+
+  it('rejects extra positionals and invalid init values', () => {
+    expectCliError(['init', 'one', 'two'], 'ADDONOVA_CLI_UNEXPECTED_ARGUMENT');
+    expectCliError(['build', 'output'], 'ADDONOVA_CLI_UNEXPECTED_ARGUMENT');
+    expectCliError(
+      ['init', '--pm', 'cargo'],
+      'ADDONOVA_CLI_INVALID_VALUE',
+      'npm, pnpm, yarn, bun',
+    );
+    expectCliError(['init', '--template'], 'ADDONOVA_CLI_MISSING_VALUE');
   });
 
   it('rejects unknown commands and options', () => {

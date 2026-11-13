@@ -1,10 +1,11 @@
-export function renderHelp(): string {
-  return `Addonova
+export const HELP_TEXT = `Addonova
 
 Usage:
   addonova <command> [options]
+  addonova init [directory] [options]
 
 Commands:
+  init        Scaffold a new extension from a template
   build       Build the extension
   dev         Watch sources and rebuild
   clean       Remove generated output
@@ -27,5 +28,15 @@ Options:
   --no-color                 Disable colored output
   -h, --help                 Show this help
   -V, --version              Show the Addonova version
+
+Init options:
+  -t, --template <name>      Template: vanilla-ts, vanilla-js, react, or gh:owner/repo
+  --pm <manager>             Package manager: npm, pnpm, yarn, or bun
+  --git, --no-git            Initialize a git repository (default: on)
+  --force                    Scaffold into a non-empty directory
+  --offline                  Use bundled templates only
 `;
+
+export function renderHelp(): string {
+  return HELP_TEXT;
 }
