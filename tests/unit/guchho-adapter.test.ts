@@ -87,6 +87,11 @@ describe('guchho adapter', () => {
     });
   });
 
+  it('forwards the in-memory write flag', () => {
+    expect(toGuchhoOptions({ ...baseInput, write: false }).write).toBe(false);
+    expect(toGuchhoOptions(baseInput).write).toBeUndefined();
+  });
+
   it('rejects builds without entrypoints', async () => {
     await expect(
       guchhoAdapter.build({
