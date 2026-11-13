@@ -14,6 +14,9 @@ All notable changes to `addonova` are documented here.
   subpath.
 - Manifest synthesis for background, content scripts and CSS, popup, options,
   side panel, devtools, sandbox, and URL overrides.
+- Localized manifest support for `public/_locales/<locale>/messages.json` and
+  flat `src/_locales/<locale>.i18n` sources, including generated
+  `messages.json` output and `__MSG_` manifest validation.
 - Manifest functions with a per-target context, `package.json` name/version
   defaults, prerelease `version_name` handling, and icon auto-discovery.
 - Dotenv loading with `import.meta.env` defines for mode, browser, manifest
