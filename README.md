@@ -50,6 +50,8 @@ the built CLI end to end.
 - Extensibility hooks and a module system for entrypoints, aliases, generated
   files, and manifest customization.
 - Per-target `@addonova/browser` integration with `external` and `bundle` modes.
+- `addonova doctor` environment diagnostics for Node.js, Guchho, configuration,
+  entrypoints, browser binaries, and the browser API package.
 - Colored, timed CLI output with file-tree build summaries and a TTY-aware
   spinner.
 - ZIP, TAR, and TAR.GZ packaging with `manifest.json` at the archive root.
@@ -177,7 +179,9 @@ files, in priority order:
 4. `addonova.config.json`
 
 Use `--config <path>` to select a file explicitly. `defineConfig()` is an
-identity helper that provides editor types.
+identity helper that provides editor types. A user-level
+`~/.addonova/addonova.config.*` file can provide `webExt` launcher defaults; its
+other fields are ignored.
 
 ```ts
 import { defineConfig } from 'addonova';
@@ -365,6 +369,7 @@ Commands:
 | `dev` | Watch sources, rebuild, and preserve the last successful output. |
 | `clean` | Stop the bundler service and remove generated output. |
 | `info` | Print environment, configuration, targets, and entry points. |
+| `doctor` | Diagnose Node.js, Guchho, configuration, browsers, and the browser API package. |
 | `validate` | Validate configuration and manifests without writing output. |
 | `pack` | Package a previously built extension. |
 | `zip` | Package a previously built extension as a ZIP archive, regardless of `pack.format`. |
@@ -386,7 +391,7 @@ Options:
 | `--include <glob>` | Include matching files when packing. Repeat for multiple patterns. |
 | `--exclude <glob>` | Exclude matching files when packing. Repeat for multiple patterns. |
 | `--sources` | Also pack a Firefox source archive. |
-| `--json` | Print the `analyze` report as JSON. |
+| `--json` | Print the report as JSON (`analyze` and `doctor`). |
 | `--verbose` | Print underlying stack traces on failure. |
 | `--debug` | Emit structured JSON dev diagnostics to stderr. |
 | `--no-color` | Disable colored output. |
@@ -569,35 +574,39 @@ and launch or reload failures are reported as warnings without stopping the dev
 loop. If the browser process exits unexpectedly, the next successful rebuild
 relaunches it. Config changes close existing launchers before recreating targets.
 
-### web-ext configuration files
+### Launcher defaults in addonova config
 
-Launcher defaults can also live in dedicated config files:
+Launcher defaults use the same configuration convention as the rest of
+Addonova:
 
-- Global: `~/.addonova/web-ext.config.{ts,js,mjs,json}`
-- Project: `<projectRoot>/web-ext.config.{ts,js,mjs,json}`
+- Project: `<projectRoot>/addonova.config.*` → `webExt`
+- User: `~/.addonova/addonova.config.*` → `webExt`
 
-`web-ext.config.*` files use the same shape as the `webExt` option and can use
-`defineWebExtConfig()` for editor types:
+Only the `webExt` field is read from the user-level file. Dedicated
+`web-ext.config.*` files are not read; put launcher settings under `webExt` in
+`addonova.config.*`.
 
 ```ts
-import { defineWebExtConfig } from 'addonova';
+// ~/.addonova/addonova.config.ts
+import { defineConfig } from 'addonova';
 
-export default defineWebExtConfig({
-  startUrls: ['https://example.com'],
+export default defineConfig({
+  webExt: {
+    startUrls: ['https://example.com'],
+  },
 });
 ```
 
 Options are merged from lowest to highest precedence:
 
 1. Built-in defaults.
-2. `~/.addonova/web-ext.config.*`.
-3. `addonova.config.*` → `webExt`.
-4. `<projectRoot>/web-ext.config.*`.
+2. `~/.addonova/addonova.config.*` → `webExt`.
+3. `<projectRoot>/addonova.config.*` → `webExt`.
 
 Higher-precedence top-level values override lower ones, `binaries` is merged
 key-by-key, arrays are replaced rather than concatenated, and explicit
-`undefined` values do not erase lower-precedence values. Changes to a project
-`web-ext.config.*` trigger a config reload; global files are not watched.
+`undefined` values do not erase lower-precedence values. Changes to the project
+`addonova.config.*` trigger a config reload; the user-level file is not watched.
 
 ## 11. Production builds
 
@@ -673,6 +682,17 @@ npx addonova analyze --json
 
 JSON reports include `browser`, `manifestVersion`, `outdir`, `totalBytes`,
 `dependencies`, `inputs` (path and bytes), and `outputs` (path and size).
+
+`doctor` checks the local build environment: the Node.js version against the
+package engine range, Guchho resolution, configuration discovery, entrypoints,
+browser binaries for every configured target, and the `@addonova/browser`
+package when `browserApi` is `bundle`. Missing browsers are warnings; missing
+required dependencies are failures and exit with code 1:
+
+```bash
+npx addonova doctor
+npx addonova doctor --json
+```
 
 ## 12. Bundler integration
 
@@ -910,6 +930,11 @@ Application code should import from the package root. Do not import target
 subpaths directly when using bundle mode. The object form is
 `{ mode, package, define }`; set `define: false` to skip the compile-time
 definition.
+
+Addonova `1.0.x` targets `@addonova/browser ^0.2.0`. That release adds typed
+storage items, type-safe messaging and proxy services, content-script context
+and UI helpers, i18n helpers, and a fake browser with a Vitest plugin. See the
+`@addonova/browser` README for the runtime API and testing guides.
 
 ## 16. Limitations
 
