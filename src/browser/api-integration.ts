@@ -55,7 +55,7 @@ export function assertBrowserApiInstalled(
     return;
   }
 
-  if (isPackageInstalled(root, config.packageName)) {
+  if (isBrowserApiInstalled(root, config)) {
     return;
   }
 
@@ -66,6 +66,13 @@ export function assertBrowserApiInstalled(
     suggestion:
       'Install the package in the project, or set browserApi to "external" to keep it external.',
   });
+}
+
+export function isBrowserApiInstalled(
+  root: string,
+  config: Pick<ResolvedBrowserApiConfig, 'packageName'>,
+): boolean {
+  return isPackageInstalled(root, config.packageName);
 }
 
 function isPackageInstalled(root: string, packageName: string): boolean {
