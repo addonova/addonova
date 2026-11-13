@@ -4,6 +4,7 @@ import { describe, expect, it } from '@guchho/test';
 
 import { classifyChange } from '../../src/dev/watcher.ts';
 import type { ResolvedConfig } from '../../src/core/config.ts';
+import { createDefaultWebExtConfig } from '../../src/launcher/config.ts';
 
 const root = path.resolve('C:\\project');
 
@@ -34,6 +35,7 @@ const config: ResolvedConfig = {
     packageName: '@addonova/browser',
     define: true,
   },
+  webExt: createDefaultWebExtConfig(),
   plugins: [],
   pack: {
     outFile: null,
