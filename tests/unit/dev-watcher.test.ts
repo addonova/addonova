@@ -59,6 +59,12 @@ describe('dev change classification', () => {
     );
   });
 
+  it('does not classify legacy web-ext config files as config', () => {
+    expect(classifyChange(path.join(root, 'web-ext.config.ts'), config)).toBe(
+      'source',
+    );
+  });
+
   it('classifies entrypoints, sources, assets, and unknown files', () => {
     expect(
       classifyChange(path.join(root, 'src/background.ts'), config),
