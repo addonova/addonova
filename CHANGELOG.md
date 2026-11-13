@@ -29,6 +29,8 @@ All notable changes to `addonova` are documented here.
   without loading a project configuration.
 - Bundled `vanilla-ts`, `vanilla-js`, and `react` templates, plus the `vanilla`
   alias for `vanilla-ts`.
+- Default English `_locales` catalogs and localized manifest fields in bundled
+  templates.
 - Templates now depend on `@addonova/browser` and use it with
   `browserApi: 'bundle'` in background, content, and popup code.
 - Remote templates through `giget` using `gh:owner/repo[/path][#ref]` sources.
