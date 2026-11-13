@@ -32,6 +32,9 @@ describe('CLI argument parsing', () => {
       outdir: 'output',
       minify: false,
       sourcemap: 'inline',
+      include: [],
+      exclude: [],
+      json: false,
       verbose: true,
       debug: false,
       noColor: false,
@@ -77,6 +80,8 @@ describe('CLI argument parsing', () => {
       'info',
       'validate',
       'pack',
+      'zip',
+      'analyze',
     ]) {
       expect(parseArgs([command]).command).toBe(command);
     }
@@ -104,6 +109,9 @@ describe('CLI argument parsing', () => {
       force: true,
       offline: true,
       browsers: [],
+      include: [],
+      exclude: [],
+      json: false,
       verbose: false,
       debug: false,
       noColor: false,
@@ -131,6 +139,26 @@ describe('CLI argument parsing', () => {
       'npm, pnpm, yarn, bun',
     );
     expectCliError(['init', '--template'], 'ADDONOVA_CLI_MISSING_VALUE');
+  });
+
+  it('parses repeatable include and exclude patterns', () => {
+    const options = parseArgs([
+      'zip',
+      '--include',
+      'manifest.json',
+      '--include=icons/**',
+      '--exclude',
+      '**/*.map',
+      '--exclude=**/*.json',
+      '--sources',
+      '--json',
+    ]);
+
+    expect(options.command).toBe('zip');
+    expect(options.include).toEqual(['manifest.json', 'icons/**']);
+    expect(options.exclude).toEqual(['**/*.map', '**/*.json']);
+    expect(options.sources).toBe(true);
+    expect(options.json).toBe(true);
   });
 
   it('rejects unknown commands and options', () => {
