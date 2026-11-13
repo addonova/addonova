@@ -27,7 +27,6 @@ import {
 import { CONFIG_FILENAMES } from '../core/config.ts';
 import type { ResolvedBrowser, ResolvedConfig } from '../core/config.ts';
 import { AddonovaError, toDiagnostic } from '../core/errors.ts';
-import { WEB_EXT_CONFIG_FILENAMES } from '../launcher/config.ts';
 import { createBrowserLauncher } from '../launcher/launcher.ts';
 import type { BrowserLauncher } from '../launcher/types.ts';
 import { collectContentScriptCss } from '../browser/content-css.ts';
@@ -167,7 +166,7 @@ export function classifyChange(file: string, config: ResolvedConfig): ChangeKind
   }
 
   if (
-    [...CONFIG_FILENAMES, ...WEB_EXT_CONFIG_FILENAMES].some(
+    CONFIG_FILENAMES.some(
       (candidate) => candidate.toLowerCase() === fileName,
     )
   ) {
