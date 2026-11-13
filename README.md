@@ -34,6 +34,8 @@ the built CLI end to end.
 - File-based entrypoints from `src/entrypoints/` with `define*` helpers.
 - Manifest synthesis for background, content scripts, popup, options,
   side panel, devtools, sandbox, and URL overrides.
+- Localized manifest messages from standard `public/_locales` files or flat
+  `src/_locales/*.i18n` sources.
 - TypeScript and JavaScript bundling with extension-safe IIFE output.
 - HTML entry points with rewritten script, stylesheet, and asset references.
 - `package.json` defaults, icon auto-discovery, and dotenv-based
@@ -370,7 +372,7 @@ Commands:
 | `clean` | Stop the bundler service and remove generated output. |
 | `info` | Print environment, configuration, targets, and entry points. |
 | `doctor` | Diagnose Node.js, Guchho, configuration, browsers, and the browser API package. |
-| `validate` | Validate configuration and manifests without writing output. |
+| `validate` | Validate configuration, manifests, and localized messages without writing output. |
 | `pack` | Package a previously built extension. |
 | `zip` | Package a previously built extension as a ZIP archive, regardless of `pack.format`. |
 | `analyze` | Report bundle inputs, outputs, dependencies, and total size without writing output. |
@@ -461,6 +463,51 @@ browser-specific fields are validated per target.
 Manifests must include at least a name and a valid version. Referenced files are
 checked against the final output directory during `build` and before publishing
 during `dev`.
+
+### Localized manifests
+
+Addonova supports two locale source layouts:
+
+- Standard Chromium `messages.json` files in `public/_locales/<locale>/messages.json`.
+  These are copied to the output and validated in place.
+- Flat source files in `src/_locales/<locale>.i18n`. These are converted to
+  `_locales/<locale>/messages.json` during `build` and `dev`.
+
+```text
+src/_locales/en.i18n
+src/_locales/en_GB.i18n
+public/_locales/zh-CN/messages.json
+```
+
+`.i18n` files use one `@message` key per block. Non-empty lines below a key are
+joined with spaces:
+
+```text
+@app_name
+My Extension
+
+@app_description
+A localized extension description.
+```
+
+Use the standard manifest fields for localized values:
+
+```ts
+export default {
+  manifest: {
+    default_locale: 'en',
+    name: '__MSG_app_name__',
+    description: '__MSG_app_description__',
+  },
+};
+```
+
+If any locales exist, `default_locale` is required and must match a collected
+locale. Manifest `__MSG_<key>__` references are checked against the default
+locale; missing or malformed default-locale messages are errors. Missing
+messages in other locales are warnings, so partial translations remain
+buildable. A locale defined by both source layouts is an error. `addonova
+validate` performs the same checks without writing output.
 
 ## 9. Entry points
 
@@ -963,8 +1010,9 @@ and UI helpers, i18n helpers, and a fake browser with a Vitest plugin. See the
 - Guchho 1.0.9 has upstream limitations around plugin `transform`, `resolve`,
   `emitFile`, and optional platform packages. Addonova works around the
   transform and watch limitations and does not expose unsupported hooks.
-- Manifest validation checks structure and referenced files, not full store
-  policy compliance.
+- Manifest validation checks structure, referenced files, and localized
+  `__MSG_` fields, not full store policy compliance. Localization checks cover
+  manifest values, not `__MSG_` usage inside extension scripts or styles.
 
 ## 17. License
 
