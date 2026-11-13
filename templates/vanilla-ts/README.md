@@ -21,5 +21,6 @@ A browser extension built with [Addonova](https://github.com/addonova/addonova).
 - `src/entrypoints/background.ts` — background service worker.
 - `src/entrypoints/content.ts` — content script.
 - `src/entrypoints/popup/` — popup HTML, TypeScript, and CSS.
+- `src/_locales/en.i18n` — localized manifest name and description.
 - `public/` — files copied into the build output unchanged.
 - `addonova.config.ts` — browsers and manifest defaults.
