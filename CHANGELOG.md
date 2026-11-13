@@ -3,6 +3,29 @@
 All notable changes to `addonova` are documented here.
 
 
+## [Unreleased]
+
+### Added
+
+- `addonova init [directory]` command that scaffolds a working extension
+  without loading a project configuration.
+- Bundled `vanilla-ts`, `vanilla-js`, and `react` templates, plus the `vanilla`
+  alias for `vanilla-ts`.
+- Templates now depend on `@addonova/browser` and use it with
+  `browserApi: 'bundle'` in background, content, and popup code.
+- Remote templates through `giget` using `gh:owner/repo[/path][#ref]` sources.
+- `--template`, `--pm`, `--git`/`--no-git`, `--force`, and `--offline` init
+  options.
+- `initProject`, template metadata, package-manager detection, and related types
+  exported from the public API.
+- Unit and integration coverage for scaffolding, generated project builds, and
+  git handling.
+
+### Fixed
+
+- `browserApi: 'bundle'` now detects installed ESM-only browser API packages
+  that do not expose a CommonJS `require` export.
+
 ## [1.0.6] - 2026-11-10
 
 ### Added

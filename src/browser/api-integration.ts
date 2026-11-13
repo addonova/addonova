@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 
@@ -54,18 +55,52 @@ export function assertBrowserApiInstalled(
     return;
   }
 
+  if (isPackageInstalled(root, config.packageName)) {
+    return;
+  }
+
+  throw new AddonovaError({
+    code: 'ADDONOVA_BROWSER_API_NOT_FOUND',
+    severity: 'error',
+    message: `The browser API package "${config.packageName}" could not be resolved from ${root}.`,
+    suggestion:
+      'Install the package in the project, or set browserApi to "external" to keep it external.',
+  });
+}
+
+function isPackageInstalled(root: string, packageName: string): boolean {
   const requireFromProject = createRequire(path.join(root, 'package.json'));
 
-  try {
-    requireFromProject.resolve(config.packageName);
-  } catch (error) {
-    throw new AddonovaError({
-      code: 'ADDONOVA_BROWSER_API_NOT_FOUND',
-      severity: 'error',
-      message: `The browser API package "${config.packageName}" could not be resolved from ${root}.`,
-      suggestion:
-        'Install the package in the project, or set browserApi to "external" to keep it external.',
-      cause: error,
-    });
+  for (const specifier of [packageName, `${packageName}/package.json`]) {
+    try {
+      requireFromProject.resolve(specifier);
+
+      return true;
+    } catch {
+      continue;
+    }
+  }
+
+  let directory = path.resolve(root);
+
+  while (true) {
+    const packageJson = path.join(
+      directory,
+      'node_modules',
+      ...packageName.split('/'),
+      'package.json',
+    );
+
+    if (existsSync(packageJson)) {
+      return true;
+    }
+
+    const parent = path.dirname(directory);
+
+    if (parent === directory) {
+      return false;
+    }
+
+    directory = parent;
   }
 }

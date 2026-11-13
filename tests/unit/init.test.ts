@@ -56,6 +56,23 @@ describe('initProject', () => {
       expect(result.files).toContain('package.json');
       expect(result.files).not.toContain('_gitignore');
       expectNoPlaceholders(result);
+
+      const packageJson = JSON.parse(
+        readFileSync(path.join(result.root, 'package.json'), 'utf8'),
+      ) as { dependencies?: Record<string, string> };
+      const config = readFileSync(path.join(result.root, configName), 'utf8');
+      const background = readFileSync(
+        path.join(
+          result.root,
+          'src',
+          template === 'vanilla-js' ? 'background.js' : 'background.ts',
+        ),
+        'utf8',
+      );
+
+      expect(packageJson.dependencies?.['@addonova/browser']).toBe('^0.1.0');
+      expect(config).toContain("browserApi: 'bundle'");
+      expect(background).toContain("from '@addonova/browser'");
     });
   }
 
@@ -144,6 +161,11 @@ describe('initProject', () => {
           'utf8',
         );
         writeFileSync(path.join(dir, '_gitignore'), 'node_modules/\n', 'utf8');
+        writeFileSync(
+          path.join(dir, 'README.md'),
+          '# __PROJECT_TITLE__\n',
+          'utf8',
+        );
       },
     };
 
@@ -267,8 +289,12 @@ describe('detectPackageManager', () => {
 
     const bare = createTempDirectory();
 
-    await expect(detectPackageManager({ cwd: yarn })).resolves.toBe('yarn');
-    await expect(detectPackageManager({ cwd: bare })).resolves.toBe('npm');
+    await expect(detectPackageManager({ cwd: yarn, env: {} })).resolves.toBe(
+      'yarn',
+    );
+    await expect(detectPackageManager({ cwd: bare, env: {} })).resolves.toBe(
+      'npm',
+    );
   });
 });
 
@@ -305,4 +331,3 @@ function expectNoPlaceholders(result: InitProjectResult): void {
   expect(readme).not.toContain('__PROJECT_TITLE__');
   expect(packageJson).toContain(path.basename(result.root));
 }
-                                                                                            

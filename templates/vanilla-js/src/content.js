@@ -1,3 +1,7 @@
+import { getBrowserInfo } from '@addonova/browser';
+
 import { formatGreeting } from './shared.js';
 
-console.log(formatGreeting('content script'));
+const info = getBrowserInfo();
+
+console.log(formatGreeting('content script'), `${info.name}/${info.engine}`);

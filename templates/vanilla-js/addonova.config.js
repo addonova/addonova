@@ -7,6 +7,7 @@ export default defineConfig({
     popup: 'src/popup/index.html',
   },
   browsers: ['chrome'],
+  browserApi: 'bundle',
   manifest: {
     name: '__PROJECT_TITLE__',
     version: '1.0.0',

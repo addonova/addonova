@@ -125,6 +125,27 @@ describe('browser API integration', () => {
 
     expect(() => assertBrowserApiInstalled(root, bundleConfig)).not.toThrow();
   });
+
+  it('accepts an ESM-only package without a require export', () => {
+    const root = createProject({
+      'node_modules/@addonova/browser/package.json': JSON.stringify({
+        name: '@addonova/browser',
+        version: '0.1.0',
+        type: 'module',
+        exports: {
+          '.': {
+            types: './index.d.ts',
+            import: './index.js',
+          },
+        },
+      }),
+      'node_modules/@addonova/browser/index.js': 'export const target = "root";\n',
+      'node_modules/@addonova/browser/index.d.ts':
+        'export declare const target: string;\n',
+    });
+
+    expect(() => assertBrowserApiInstalled(root, bundleConfig)).not.toThrow();
+  });
 });
 
 function createProject(files: Readonly<Record<string, string>>): string {

@@ -2,6 +2,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -57,6 +58,7 @@ describe('CLI runner', () => {
     const root = createProject({});
     await initTemplate(root, 'app', 'vanilla-ts');
     installAddonovaShim(path.join(root, 'app'));
+    installBrowserShim(path.join(root, 'app'));
 
     const { io, stdout, stderr } = createIo(path.join(root, 'app'));
     const exitCode = await runCli(['build', '--no-color'], io);
@@ -67,12 +69,21 @@ describe('CLI runner', () => {
     expect(
       existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
     ).toBe(true);
+
+    const background = readFileSync(
+      path.join(root, 'app', 'dist', 'chrome', 'background.js'),
+      'utf8',
+    );
+
+    expect(background).not.toContain('@addonova/browser');
+    expect(background).toContain('onInstalled');
   }, 60_000);
 
   it('builds a generated vanilla-js project', async () => {
     const root = createProject({});
     await initTemplate(root, 'app', 'vanilla-js');
     installAddonovaShim(path.join(root, 'app'));
+    installBrowserShim(path.join(root, 'app'));
 
     const { io, stdout, stderr } = createIo(path.join(root, 'app'));
     const exitCode = await runCli(['build', '--no-color'], io);
@@ -89,6 +100,7 @@ describe('CLI runner', () => {
     const root = createProject({});
     await initTemplate(root, 'app', 'react');
     installAddonovaShim(path.join(root, 'app'));
+    installBrowserShim(path.join(root, 'app'));
     installReactShim(path.join(root, 'app'));
 
     const { io, stdout, stderr } = createIo(path.join(root, 'app'));
@@ -406,6 +418,51 @@ function installAddonovaShim(root: string): void {
     'addonova',
     `export function defineConfig(config) {\n  return config;\n}\n`,
   );
+}
+
+const BROWSER_SHIM_SOURCE = `export const runtime = {
+  onInstalled: { addListener() {} },
+};
+export const storage = {
+  local: {
+    async get() {
+      return {};
+    },
+    async set() {},
+  },
+};
+export const action = {
+  async setBadgeText() {},
+};
+export function getBrowserInfo() {
+  return { name: 'chrome', engine: 'chromium' };
+}
+`;
+
+function installBrowserShim(root: string): void {
+  const directory = path.join(root, 'node_modules', '@addonova', 'browser');
+  mkdirSync(directory, { recursive: true });
+  writeFileSync(
+    path.join(directory, 'package.json'),
+    JSON.stringify({
+      name: '@addonova/browser',
+      version: '0.1.0-test',
+      type: 'module',
+      main: 'index.js',
+      exports: {
+        '.': './index.js',
+        './chrome': './chrome.js',
+        './chromium': './chromium.js',
+        './edge': './edge.js',
+        './firefox': './firefox.js',
+      },
+    }),
+    'utf8',
+  );
+
+  for (const entry of ['index', 'chrome', 'chromium', 'edge', 'firefox']) {
+    writeFileSync(path.join(directory, `${entry}.js`), BROWSER_SHIM_SOURCE, 'utf8');
+  }
 }
 
 function installReactShim(root: string): void {

@@ -19,13 +19,15 @@ helper package, and from the bundler integration. That separation keeps output
 predictable and makes validation explicit.
 
 Status: implementation phases 0 through 7 are complete, and `@addonova/browser`
-is integrated through the `external` and `bundle` modes. The test suite covers
-all supported targets, production builds, packaging, plugins, development
-rebuilds, browser API bundling, and Windows hardening, and `npm run acceptance`
-verifies the built CLI end to end.
+is integrated through the `external` and `bundle` modes. The `init` command
+scaffolds projects from bundled and remote templates. The test suite covers all
+supported targets, production builds, packaging, plugins, development rebuilds,
+browser API bundling, and Windows hardening, and `npm run acceptance` verifies
+the built CLI end to end.
 
 ## 2. Features
 
+- Project scaffolding with `addonova init` and bundled or remote templates.
 - Chrome, Chromium, Edge, and Firefox targets.
 - Manifest V2 and V3 generation with per-browser overrides.
 - TypeScript and JavaScript bundling with extension-safe IIFE output.
@@ -57,6 +59,36 @@ Addonova depends on the published `guchho@1.0.9` bundler and its native binary.
 Some npm versions ask for approval before running Guchho's install script.
 
 ## 4. Project setup
+
+Scaffold a new project with a bundled template:
+
+```bash
+npx addonova init my-extension
+cd my-extension
+npm install
+npm run dev
+```
+
+`init` defaults to the `vanilla-ts` template, the current directory, git
+initialization, and a package manager inferred from the environment. Pass
+`--no-git`, `--offline`, or `--force` as needed.
+
+### Templates
+
+| Template | Description |
+| --- | --- |
+| `vanilla-ts` | TypeScript background, content script, and popup. |
+| `vanilla-js` | JavaScript version of the same structure. |
+| `react` | React and TypeScript popup with DOM typings. |
+| `vanilla` | Alias for `vanilla-ts`. |
+
+Remote templates are supported through GitHub sources such as
+`gh:owner/repo/path#ref`. Use `--offline` to guarantee that only bundled
+templates are used.
+
+All bundled templates depend on `@addonova/browser` and set
+`browserApi: 'bundle'`, so the generated extension uses the unified browser API
+and builds standalone after `npm install`.
 
 A minimal project:
 
@@ -211,6 +243,7 @@ Commands:
 
 | Command | Description |
 | --- | --- |
+| `init [directory]` | Scaffold a new extension from a bundled or remote template. |
 | `build` | Build every configured browser target. |
 | `dev` | Watch sources, rebuild, and preserve the last successful output. |
 | `clean` | Stop the bundler service and remove generated output. |
@@ -235,6 +268,16 @@ Options:
 | `--no-color` | Disable colored output. |
 | `-h`, `--help` | Show help. |
 | `-V`, `--version` | Show the Addonova version. |
+
+`init` options:
+
+| Option | Description |
+| --- | --- |
+| `-t`, `--template <name>` | Template name or a `gh:owner/repo[/path][#ref]` source. |
+| `--pm <manager>` | Package manager: `npm`, `pnpm`, `yarn`, or `bun`. |
+| `--git` / `--no-git` | Enable or disable `git init` (default: enabled). |
+| `--force` | Scaffold into a non-empty directory. |
+| `--offline` | Use bundled templates only; never download. |
 
 ### Terminal output
 
