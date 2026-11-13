@@ -48,6 +48,7 @@ const TEXT_EXTENSIONS = new Set([
   '.html',
   '.htm',
   '.css',
+  '.i18n',
   '.md',
   '.txt',
   '.svg',
