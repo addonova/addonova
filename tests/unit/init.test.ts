@@ -71,7 +71,7 @@ describe('initProject', () => {
         'utf8',
       );
 
-      expect(packageJson.dependencies?.['@addonova/browser']).toBe('^0.1.0');
+      expect(packageJson.dependencies?.['@addonova/browser']).toBe('^0.2.0');
       expect(config).toContain("browserApi: 'bundle'");
       expect(background).toContain("from '@addonova/browser'");
     });
