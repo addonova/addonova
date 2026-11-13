@@ -10,7 +10,7 @@
     "pack": "addonova pack"
   },
   "dependencies": {
-    "@addonova/browser": "^0.1.0"
+    "@addonova/browser": "^0.2.0"
   },
   "devDependencies": {
     "addonova": "__ADDONOVA_VERSION__"
