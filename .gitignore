@@ -24,3 +24,6 @@ package-lock.json
 # Stray files
 nul
 
+
+# Addonova browser profiles and cache
+.addonova/
