@@ -73,6 +73,7 @@ describe('CLI runner', () => {
     expect(
       existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
     ).toBe(true);
+    expectLocalizedManifest(path.join(root, 'app', 'dist', 'chrome'));
 
     const background = readFileSync(
       path.join(root, 'app', 'dist', 'chrome', 'background.js'),
@@ -98,6 +99,7 @@ describe('CLI runner', () => {
     expect(
       existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
     ).toBe(true);
+    expectLocalizedManifest(path.join(root, 'app', 'dist', 'chrome'));
   }, 60_000);
 
   it('scaffolds and builds a generated react project', async () => {
@@ -116,6 +118,7 @@ describe('CLI runner', () => {
     expect(
       existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
     ).toBe(true);
+    expectLocalizedManifest(path.join(root, 'app', 'dist', 'chrome'));
   }, 60_000);
 
   it('prints resolved configuration information', async () => {
@@ -586,6 +589,25 @@ export function definePage(definition) {
   return unwrap(definition);
 }
 `;
+
+function expectLocalizedManifest(outdir: string): void {
+  const manifest = JSON.parse(
+    readFileSync(path.join(outdir, 'manifest.json'), 'utf8'),
+  ) as {
+    default_locale?: string;
+    description?: string;
+    name?: string;
+  };
+  const messages = JSON.parse(
+    readFileSync(path.join(outdir, '_locales', 'en', 'messages.json'), 'utf8'),
+  ) as Record<string, { message?: string }>;
+
+  expect(manifest.default_locale).toBe('en');
+  expect(manifest.name).toBe('__MSG_app_name__');
+  expect(manifest.description).toBe('__MSG_app_description__');
+  expect(messages.app_name?.message).toBe('App');
+  expect(messages.app_description?.message).toContain('Addonova');
+}
 
 function installAddonovaShim(root: string): void {
   writeModule(
