@@ -22,8 +22,13 @@ import {
 import { collectContentScriptCss } from '../browser/content-css.ts';
 import {
   buildManifest,
+  resolveManifestObject,
   writeManifest,
 } from '../browser/manifest.ts';
+import {
+  collectLocales,
+  getManifestDefaultLocale,
+} from '../browser/locales.ts';
 import { isEntrypointForBrowser } from './entrypoints.ts';
 import { loadBuildEnv, toImportMetaEnvDefines } from './env.ts';
 import {
@@ -89,6 +94,22 @@ export async function buildProject(
       const publicCopy = result.success
         ? copyPublicDirectory(config.publicDir, outdir)
         : { copied: [], warnings: [] };
+      const resolvedManifest = result.success
+        ? resolveManifestObject(config.manifest, browser, {
+            mode: config.mode,
+            command: 'build',
+            defaults: config.manifestDefaults,
+          })
+        : null;
+      const locales =
+        result.success && resolvedManifest !== null
+          ? collectLocales({
+              root: config.root,
+              srcDir: config.srcDir ?? 'src',
+              publicDir: config.publicDir,
+              defaultLocale: getManifestDefaultLocale(resolvedManifest),
+            })
+          : null;
       const assets: GeneratedAsset[] = [];
 
       if (result.success) {
@@ -98,6 +119,11 @@ export async function buildProject(
           outdir,
           assets,
         });
+
+        if (locales !== null) {
+          assets.push(...locales.files);
+        }
+
         writeGeneratedAssets(outdir, assets);
       }
 
@@ -117,6 +143,7 @@ export async function buildProject(
               outdir,
               metafile: result.metafile,
             }),
+            locales: locales ?? undefined,
           })
         : null;
 
