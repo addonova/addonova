@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 import type {
   BundlerAdapter,
   BundlerBuildResult,
@@ -67,8 +69,8 @@ export async function analyzeProject(
       analyses.push({
         browser,
         outdir,
-        outputs: result.outputs,
-        inputs: result.inputs,
+        outputs: relativizeOutputs(result.outputs, outdir),
+        inputs: relativizeInputs(result.inputs, config.root),
         dependencies: extractDependencies(result.metafile),
         totalBytes: result.outputs.reduce(
           (total, output) => total + output.size,
@@ -111,6 +113,34 @@ export function extractDependencies(metafile: unknown): readonly string[] {
   }
 
   return [...dependencies].sort();
+}
+
+function relativizeOutputs(
+  outputs: readonly BundlerOutput[],
+  outdir: string,
+): readonly BundlerOutput[] {
+  return outputs.map((output) => ({
+    ...output,
+    path: relativizePath(output.path, outdir),
+  }));
+}
+
+function relativizeInputs(
+  inputs: readonly BundlerInput[],
+  root: string,
+): readonly BundlerInput[] {
+  return inputs.map((input) => ({
+    ...input,
+    path: relativizePath(input.path, root),
+  }));
+}
+
+function relativizePath(file: string, base: string): string {
+  if (!path.isAbsolute(file)) {
+    return file;
+  }
+
+  return path.relative(base, file).split(path.sep).join('/');
 }
 
 function analyzeFailure(

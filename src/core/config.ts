@@ -871,7 +871,7 @@ function normalizePackSources(
 }
 
 function normalizePackPatterns(
-  value: readonly string[] | undefined,
+  value: unknown,
   field: string,
   configPath: string | null,
 ): readonly string[] | null {
@@ -883,7 +883,7 @@ function normalizePackPatterns(
     throw configError(
       'ADDONOVA_CONFIG_PACK',
       `Config "${field}" must be an array of glob patterns.`,
-      'Use patterns such as ["**/*", "!node_modules"].',
+      'Use patterns such as ["**/*", "**/*.map"].',
       configPath,
     );
   }

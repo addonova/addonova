@@ -29,6 +29,7 @@ export { defineConfig } from './core/config.ts';
 export type {
   AddonovaBrowserApiConfig,
   AddonovaPackConfig,
+  AddonovaSourcesPackConfig,
   AddonovaUserConfig,
   BrowserOverridesInput,
   ConfigOverrides,
@@ -41,6 +42,7 @@ export type {
   ResolvedConfig,
   ResolvedEntrypoint,
   ResolvedPackConfig,
+  ResolvedSourcesPackConfig,
 } from './core/config.ts';
 export {
   WEB_EXT_CONFIG_FILENAMES,
@@ -150,13 +152,27 @@ export type {
 } from './core/init.ts';
 export {
   getArchivePath,
+  getSourcesArchivePath,
   packProject,
 } from './core/pack.ts';
 export type {
   PackProjectOptions,
   PackRunner,
+  PackSourcesResult,
   PackTargetResult,
 } from './core/pack.ts';
+export { analyzeProject, extractDependencies } from './core/analyze.ts';
+export type {
+  AnalyzeProjectOptions,
+  ProjectAnalysis,
+} from './core/analyze.ts';
+export {
+  expandBraces,
+  filterPaths,
+  matchesAny,
+  matchesDirectory,
+  matchesGlob,
+} from './core/glob.ts';
 export {
   buildManifest,
   resolveManifestObject,

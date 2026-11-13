@@ -1,11 +1,13 @@
 import type { CommandName } from '../args.ts';
 import type { CommandHandler } from '../command.ts';
+import { analyzeCommand } from './analyze.ts';
 import { buildCommand } from './build.ts';
 import { cleanCommand } from './clean.ts';
 import { devCommand } from './dev.ts';
 import { infoCommand } from './info.ts';
 import { packCommand } from './pack.ts';
 import { validateCommand } from './validate.ts';
+import { zipCommand } from './zip.ts';
 
 export type ConfigCommandName = Exclude<CommandName, 'init'>;
 
@@ -18,6 +20,8 @@ export const commandHandlers: Readonly<
   info: infoCommand,
   validate: validateCommand,
   pack: packCommand,
+  zip: zipCommand,
+  analyze: analyzeCommand,
 };
 
 export { initCommand } from './init.ts';

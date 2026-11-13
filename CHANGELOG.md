@@ -65,6 +65,19 @@ All notable changes to `addonova` are documented here.
   typed hooks.
 - Generated asset writing for `build:publicAssets`, exported as
   `writeGeneratedAssets()`.
+- `addonova zip` command that always produces a ZIP archive, plus repeatable
+  `--include` and `--exclude` glob filters for packaged files.
+- `pack.include`, `pack.exclude`, and `pack.sources` configuration for filtered
+  archives and Firefox source archives, with `pack.sources.root`,
+  `pack.sources.include`, and `pack.sources.exclude`.
+- `addonova analyze` command with a human-readable bundle report and `--json`
+  output, plus the exported `analyzeProject()` API.
+- Glob matching helpers exported as `matchesGlob()`, `matchesAny()`,
+  `matchesDirectory()`, `filterPaths()`, and `expandBraces()`.
+- `ADDONOVA_ANALYZE_FAILED`, `ADDONOVA_PACK_EMPTY`,
+  `ADDONOVA_PACK_MANIFEST_EXCLUDED`, `ADDONOVA_PACK_SOURCES_MISSING`,
+  `ADDONOVA_PACK_SOURCES_EMPTY`, `ADDONOVA_PACK_SOURCES_FAILED`, and
+  `ADDONOVA_PACK_SOURCES_UNSUPPORTED` diagnostics.
 - `ADDONOVA_HOOK_FAILED`, `ADDONOVA_MODULE_LOAD_FAILED`,
   `ADDONOVA_MODULE_INVALID`, `ADDONOVA_MODULE_SETUP_FAILED`,
   `ADDONOVA_MODULE_DUPLICATE`, and `ADDONOVA_GENERATED_ASSET_INVALID`
@@ -88,6 +101,8 @@ All notable changes to `addonova` are documented here.
 - Dev output is published in place while a browser is running so Windows file
   locks are avoided; the directory swap is still used when no browser is
   running.
+- `pack` and `zip` accept filters, preserve nested paths by staging filtered
+  files, and can write source archives for Firefox targets.
 
 - Bundled templates now use convention-based `src/entrypoints/` layouts and
   `define*` helpers instead of explicit entrypoint configuration.

@@ -212,6 +212,9 @@ export default defineConfig({
     format: 'zip',
     overwrite: false,
     deterministic: false,
+    include: ['**/*'],
+    exclude: [],
+    sources: false,
   },
 });
 ```
@@ -246,6 +249,9 @@ export default defineConfig({
 | `pack.level` | 0-9 | engine default | Compression level for ZIP and TAR.GZ. |
 | `pack.overwrite` | boolean | `false` | Replace an existing archive. |
 | `pack.deterministic` | boolean | `false` | Use a fixed archive timestamp. |
+| `pack.include` | string[] | `['**/*']` | Glob patterns for files to include in extension archives. |
+| `pack.exclude` | string[] | `[]` | Glob patterns for files to exclude from extension archives. `manifest.json` must remain included. |
+| `pack.sources` | boolean or object | `false` | Also write a `*-sources.zip` archive for Firefox targets. The object form is `{ include, exclude, root }`. |
 
 `browserApi` controls the runtime helper package:
 
@@ -361,6 +367,8 @@ Commands:
 | `info` | Print environment, configuration, targets, and entry points. |
 | `validate` | Validate configuration and manifests without writing output. |
 | `pack` | Package a previously built extension. |
+| `zip` | Package a previously built extension as a ZIP archive, regardless of `pack.format`. |
+| `analyze` | Report bundle inputs, outputs, dependencies, and total size without writing output. |
 
 Options:
 
@@ -375,6 +383,10 @@ Options:
 | `--sourcemap[=mode]` | Enable source maps or select a mode. |
 | `--no-sourcemap` | Disable source maps. |
 | `--browser-api <mode>` | Set `@addonova/browser` integration to `external` or `bundle`. |
+| `--include <glob>` | Include matching files when packing. Repeat for multiple patterns. |
+| `--exclude <glob>` | Exclude matching files when packing. Repeat for multiple patterns. |
+| `--sources` | Also pack a Firefox source archive. |
+| `--json` | Print the `analyze` report as JSON. |
 | `--verbose` | Print underlying stack traces on failure. |
 | `--debug` | Emit structured JSON dev diagnostics to stderr. |
 | `--no-color` | Disable colored output. |
@@ -613,6 +625,54 @@ directory, or the configuration file.
 `manifest.json` stays at the archive root. Existing archives are refused unless
 `pack.overwrite` is enabled. Deterministic packs use a fixed timestamp and
 produce byte-identical archives for unchanged output.
+
+Use `zip` to produce a ZIP archive even when `pack.format` is set to `tar` or
+`tar.gz`:
+
+```bash
+npx addonova zip
+npx addonova zip --exclude '**/*.map' --include 'manifest.json' --include 'icons/**'
+```
+
+Filtering uses glob patterns matched against paths relative to each target's
+output directory. `*` stays within one path segment, `**` crosses segments, and
+braces such as `*.{js,css}` expand to alternatives. Filtered archives are staged
+in a temporary directory before packing, so nested directories keep their
+structure. The archive must keep `manifest.json`; otherwise packing fails with
+`ADDONOVA_PACK_MANIFEST_EXCLUDED`.
+
+Firefox source archives are enabled with `pack.sources` or `--sources`:
+
+```ts
+export default {
+  pack: {
+    sources: {
+      root: '.',
+      include: ['src/**', 'public/**', 'manifest.json', 'package.json'],
+      exclude: ['src/**/*.test.ts'],
+    },
+  },
+};
+```
+
+The default source set is the project root minus dependency, VCS, hidden,
+coverage, test, and archive files. The output directory and existing archives are
+always excluded. Source archives are named `<archive>-sources.zip` beside the
+extension archive, so the default Firefox output includes both
+`addonova-firefox-mv3-<version>.zip` and
+`addonova-firefox-mv3-<version>-sources.zip`. Enabling source archives without a
+Firefox target fails with `ADDONOVA_PACK_SOURCES_UNSUPPORTED`.
+
+`analyze` runs the build in memory and reports per-target outputs, transitive
+inputs, external dependencies, and total bytes without writing files:
+
+```bash
+npx addonova analyze
+npx addonova analyze --json
+```
+
+JSON reports include `browser`, `manifestVersion`, `outdir`, `totalBytes`,
+`dependencies`, `inputs` (path and bytes), and `outputs` (path and size).
 
 ## 12. Bundler integration
 

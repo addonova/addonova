@@ -173,5 +173,9 @@ function globToRegex(pattern: string): RegExp {
 }
 
 function normalizePath(value: string): string {
-  return value.replaceAll('\\', '/').replace(/^\.\//, '').replace(/^\/+/, '');
+  return value
+    .replaceAll('\\', '/')
+    .replace(/^\.\//, '')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
 }

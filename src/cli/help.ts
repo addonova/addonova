@@ -12,6 +12,8 @@ Commands:
   info        Show environment and configuration details
   validate    Validate configuration and manifest structure
   pack        Package a built extension
+  zip         Package a built extension as a zip archive
+  analyze     Report bundle inputs, outputs, and dependencies
 
 Options:
   --browser <target>         Browser target: chrome, chromium, edge, or firefox
@@ -24,6 +26,10 @@ Options:
   --sourcemap[=mode]         Enable source maps or select a mode
   --no-sourcemap             Disable source maps
   --browser-api <mode>       Browser API integration: external or bundle
+  --include <glob>           Include matching files when packing (repeatable)
+  --exclude <glob>           Exclude matching files when packing (repeatable)
+  --sources                  Also pack a source archive for Firefox
+  --json                     Print the analysis report as JSON
   --verbose                  Show additional error details
   --debug                    Emit structured dev diagnostics to stderr
   --no-color                 Disable colored output

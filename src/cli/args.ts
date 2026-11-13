@@ -26,6 +26,8 @@ export const COMMANDS = [
   'info',
   'validate',
   'pack',
+  'zip',
+  'analyze',
 ] as const;
 
 export type CommandName = (typeof COMMANDS)[number];
@@ -46,6 +48,10 @@ export interface CliOptions {
   git?: boolean;
   force?: boolean;
   offline?: boolean;
+  include: string[];
+  exclude: string[];
+  sources?: boolean;
+  json: boolean;
   verbose: boolean;
   debug: boolean;
   noColor: boolean;
@@ -56,6 +62,9 @@ export interface CliOptions {
 export function parseArgs(argv: readonly string[]): CliOptions {
   const options: CliOptions = {
     browsers: [],
+    include: [],
+    exclude: [],
+    json: false,
     verbose: false,
     debug: false,
     noColor: false,
@@ -318,6 +327,26 @@ function parseLongOption(
 
     case 'offline':
       options.offline = parseBooleanValue(name, inlineValue, true);
+      return index + 1;
+
+    case 'include': {
+      const parsed = readValue(name, inlineValue, argv, index);
+      options.include.push(parsed.value);
+      return parsed.nextIndex;
+    }
+
+    case 'exclude': {
+      const parsed = readValue(name, inlineValue, argv, index);
+      options.exclude.push(parsed.value);
+      return parsed.nextIndex;
+    }
+
+    case 'sources':
+      options.sources = parseBooleanValue(name, inlineValue, true);
+      return index + 1;
+
+    case 'json':
+      options.json = parseBooleanValue(name, inlineValue, true);
       return index + 1;
 
     default:
