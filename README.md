@@ -42,6 +42,9 @@ the built CLI end to end.
 - Browser-specific manifest validation before output is published.
 - Development watcher with warm rebuild contexts and last-successful-output
   preservation.
+- Native browser launcher with automatic binary detection, isolated or
+  persistent profiles, and extension reloads on rebuild. No `web-ext`
+  dependency.
 - Production minification, HTML/CSS minification, tree shaking, and source maps.
 - Small plugin API with deterministic ordering and lifecycle hooks.
 - Per-target `@addonova/browser` integration with `external` and `bundle` modes.
@@ -192,6 +195,14 @@ export default defineConfig({
   sourcemap: false,
   browserApi: 'bundle',
   convertManifest: true,
+  webExt: {
+    disabled: false,
+    binaries: {},
+    chromiumArgs: [],
+    firefoxArgs: [],
+    keepProfileChanges: false,
+    startUrls: [],
+  },
   plugins: [],
   pack: {
     format: 'zip',
@@ -215,6 +226,14 @@ export default defineConfig({
 | `minify` | boolean | production | Enables JavaScript, CSS, and HTML minification. |
 | `sourcemap` | boolean or mode | development | `true`, `false`, `inline`, `external`, `linked`, `both`, or `none`. |
 | `browserApi` | mode or object | `'external'` | How `@addonova/browser` is handled. `'external'` keeps it external; `'bundle'` aliases and bundles the target adapter. The object form is `{ mode, package, define }`. |
+| `webExt.disabled` | boolean | `false` | Disable automatic browser launching during `dev`. |
+| `webExt.binaries` | object | `{}` | Custom browser executables keyed by target: `chrome`, `chromium`, `edge`, `firefox`. |
+| `webExt.chromiumArgs` | string[] | `[]` | Extra arguments for Chromium-based browsers. Required launcher flags are protected. |
+| `webExt.firefoxArgs` | string[] | `[]` | Extra arguments for Firefox. Required launcher flags are protected. |
+| `webExt.chromiumProfile` | string | isolated | Persistent Chromium profile directory, resolved from the project root. |
+| `webExt.firefoxProfile` | string | isolated | Persistent Firefox profile directory, resolved from the project root. |
+| `webExt.keepProfileChanges` | boolean | `false` | Reuse a persistent profile under `.addonova/browser-profiles/<target>` instead of a temporary profile. |
+| `webExt.startUrls` | string[] | `[]` | URLs opened when the browser launches. |
 | `plugins` | plugin[] | `[]` | Addonova plugins in registration order. |
 | `pack.format` | `zip`, `tar`, or `tar.gz` | `zip` | Archive format. |
 | `pack.outFile` | string | derived | Explicit archive path. Not allowed for multiple targets. |
@@ -468,8 +487,77 @@ Failed rebuilds leave the last successful output untouched. Config changes reloa
 configuration and recreate contexts; if reloading fails, the previous targets and
 output remain active.
 
-No browser installation is required. Browser launching and automatic extension
-reloading are not part of v1.
+### Browser launcher
+
+`dev` launches every configured target after its first successful build using a
+native in-repo launcher. Chrome, Chromium, Edge, and Firefox are supported, and
+`web-ext` is not required.
+
+Installed browsers are detected automatically. Use `webExt.binaries` to point at
+a custom executable; absolute paths, paths relative to the project root, and bare
+command names resolved through `PATH` are supported.
+
+```ts
+export default defineConfig({
+  browsers: ['chrome', 'firefox'],
+  webExt: {
+    binaries: {
+      firefox: '/opt/firefox/firefox',
+      chrome: 'C:/Program Files/Google/Chrome/Application/chrome.exe',
+    },
+    startUrls: ['https://example.com'],
+  },
+});
+```
+
+- By default each launch uses an isolated profile under the OS temp directory
+  that is removed on shutdown.
+- Set `chromiumProfile` or `firefoxProfile` to reuse a persistent profile, or set
+  `keepProfileChanges: true` to use
+  `.addonova/browser-profiles/<target>`. Persistent profiles are never deleted
+  automatically.
+- A `--user-data-dir=` entry in `chromiumArgs` or `--profile` in `firefoxArgs` is
+  treated as a persistent profile. Explicit profile configuration wins over
+  conflicting custom arguments, and a warning is printed.
+- `chromiumArgs` and `firefoxArgs` extend the required launcher flags. Conflicting
+  flags are ignored with a warning so extension loading keeps working.
+- Set `webExt.disabled: true` to skip detection, profile creation, and launching
+  entirely.
+
+Successful rebuilds reload the loaded extension. Failed rebuilds do not reload,
+and launch or reload failures are reported as warnings without stopping the dev
+loop. If the browser process exits unexpectedly, the next successful rebuild
+relaunches it. Config changes close existing launchers before recreating targets.
+
+### web-ext configuration files
+
+Launcher defaults can also live in dedicated config files:
+
+- Global: `~/.addonova/web-ext.config.{ts,js,mjs,json}`
+- Project: `<projectRoot>/web-ext.config.{ts,js,mjs,json}`
+
+`web-ext.config.*` files use the same shape as the `webExt` option and can use
+`defineWebExtConfig()` for editor types:
+
+```ts
+import { defineWebExtConfig } from 'addonova';
+
+export default defineWebExtConfig({
+  startUrls: ['https://example.com'],
+});
+```
+
+Options are merged from lowest to highest precedence:
+
+1. Built-in defaults.
+2. `~/.addonova/web-ext.config.*`.
+3. `addonova.config.*` → `webExt`.
+4. `<projectRoot>/web-ext.config.*`.
+
+Higher-precedence top-level values override lower ones, `binaries` is merged
+key-by-key, arrays are replaced rather than concatenated, and explicit
+`undefined` values do not erase lower-precedence values. Changes to a project
+`web-ext.config.*` trigger a config reload; global files are not watched.
 
 ## 11. Production builds
 
@@ -634,8 +722,16 @@ definition.
 
 ## 15. Limitations
 
-- Browser launching, automatic extension reloading, and browser automation are
-  not included.
+- The native launcher reloads the extension after a rebuild but does not
+  re-inject content scripts into tabs that are already open. Refresh those tabs
+  to pick up content-script changes.
+- Chromium extension loading uses the CDP `Extensions.loadUnpacked` command over
+  `--remote-debugging-pipe`. Older Chromium builds that lack this command fall
+  back to `--load-extension`, and reloads restart the browser process.
+- Firefox reloads use WebDriver BiDi `webExtension.install`. A recent Firefox
+  release with BiDi extension installation support is required.
+- The launcher does not provide automated browser testing or a full live-reload
+  client.
 - Runtime compatibility code is bundled only in `bundle` mode and only from the
   installed `@addonova/browser` package.
 - `@addonova/browser` is maintained separately and is an optional peer
