@@ -32,6 +32,9 @@ describe('CLI runner', () => {
 
     expect(helpIo.stdout()).toContain('Usage:');
     expect(helpIo.stdout()).toContain('info        Show environment');
+    expect(helpIo.stdout()).toContain('zip         Package a built extension');
+    expect(helpIo.stdout()).toContain('analyze     Report bundle inputs');
+    expect(helpIo.stdout()).toContain('--include <glob>');
     expect(versionIo.stdout()).toMatch(/\d+\.\d+\.\d+/);
   });
 
@@ -286,6 +289,73 @@ describe('CLI runner', () => {
     expect(stderr()).toBe('');
     expect(stdout()).toContain(`Packed chrome MV3 -> ${archivePath}`);
     expect(existsSync(archivePath)).toBe(true);
+  }, 30_000);
+
+  it('packs zip archives through the zip command', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'CLI Zip', version: '1.0.0' },
+  minify: false,
+  pack: { format: 'tar.gz' },
+};
+`,
+      'src/background.ts': 'console.log("zip-cli");\n',
+    });
+    const { io, stdout, stderr } = createIo(root);
+
+    await expect(runCli(['build'], io)).resolves.toBe(0);
+    await expect(runCli(['zip'], io)).resolves.toBe(0);
+
+    const archivePath = path.join(
+      root,
+      'dist',
+      'addonova-chrome-mv3-1.0.0.zip',
+    );
+
+    expect(stderr()).toBe('');
+    expect(stdout()).toContain(`Packed chrome MV3 -> ${archivePath}`);
+    expect(existsSync(archivePath)).toBe(true);
+    expect(
+      existsSync(path.join(root, 'dist', 'addonova-chrome-mv3-1.0.0.tar.gz')),
+    ).toBe(false);
+  }, 30_000);
+
+  it('prints bundle analysis as JSON without writing output', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'CLI Analyze', version: '1.0.0' },
+  minify: false,
+};
+`,
+      'src/background.ts': 'console.log("analyze-cli");\n',
+    });
+    const { io, stdout, stderr } = createIo(root);
+
+    await expect(runCli(['analyze', '--json'], io)).resolves.toBe(0);
+
+    const output = stdout();
+    const start = output.indexOf('[');
+    const end = output.lastIndexOf(']');
+    const report = JSON.parse(output.slice(start, end + 1)) as Array<{
+      browser: string;
+      manifestVersion: number;
+      totalBytes: number;
+      outputs: Array<{ path: string }>;
+    }>;
+
+    expect(stderr()).toBe('');
+    expect(report).toHaveLength(1);
+    expect(report[0]?.browser).toBe('chrome');
+    expect(report[0]?.manifestVersion).toBe(3);
+    expect(report[0]?.totalBytes).toBeGreaterThan(0);
+    expect(report[0]?.outputs.map((outputFile) => outputFile.path)).toContain(
+      'background.js',
+    );
+    expect(
+      existsSync(path.join(root, 'dist', 'chrome', 'background.js')),
+    ).toBe(false);
   }, 30_000);
 
   it('reports build failures with an actionable diagnostic and exit code 1', async () => {
