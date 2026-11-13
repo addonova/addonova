@@ -399,6 +399,169 @@ console.log(message);
     expect(background).toContain('tree-used');
     expect(background).not.toContain('tree-unused');
   }, 30_000);
+
+  it('generates localized messages from flat src/_locales sources', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: {
+    name: '__MSG_app_name__',
+    description: '__MSG_app_description__',
+    version: '1.0.0',
+    default_locale: 'en',
+  },
+  minify: false,
+};
+`,
+      'src/background.ts': 'export {};\n',
+      'src/_locales/en.i18n': '@app_name\nLocalized Demo\n\n@app_description\nEnglish description.\n',
+      'src/_locales/hi.i18n': '@app_name\nस्थानीय डेमो\n\n@app_description\nहिन्दी विवरण।\n',
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+    const reports = await buildProject(config);
+    const report = reports[0];
+
+    expect(report).toBeDefined();
+
+    if (report === undefined) {
+      throw new Error('Expected one localized build report.');
+    }
+
+    expect(report.result.success).toBe(true);
+    expect(report.manifestDiagnostics).toEqual([]);
+
+    const manifest = JSON.parse(
+      readFileSync(path.join(report.outdir, 'manifest.json'), 'utf8'),
+    ) as Record<string, unknown>;
+
+    expect(manifest).toMatchObject({
+      name: '__MSG_app_name__',
+      description: '__MSG_app_description__',
+      default_locale: 'en',
+    });
+    expect(
+      JSON.parse(
+        readFileSync(
+          path.join(report.outdir, '_locales/en/messages.json'),
+          'utf8',
+        ),
+      ),
+    ).toEqual({
+      app_name: { message: 'Localized Demo' },
+      app_description: { message: 'English description.' },
+    });
+    expect(
+      JSON.parse(
+        readFileSync(
+          path.join(report.outdir, '_locales/hi/messages.json'),
+          'utf8',
+        ),
+      ),
+    ).toEqual({
+      app_name: { message: 'स्थानीय डेमो' },
+      app_description: { message: 'हिन्दी विवरण।' },
+    });
+  }, 30_000);
+
+  it('copies and validates standard public _locales messages', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: {
+    name: '__MSG_app_name__',
+    version: '1.0.0',
+    default_locale: 'en',
+  },
+  minify: false,
+};
+`,
+      'src/background.ts': 'export {};\n',
+      'public/_locales/en/messages.json': JSON.stringify({
+        app_name: { message: 'Public Demo' },
+      }),
+    });
+    const config = await resolveProjectConfig({ cwd: root });
+    const reports = await buildProject(config);
+    const report = reports[0];
+
+    expect(report).toBeDefined();
+
+    if (report === undefined) {
+      throw new Error('Expected one public localization build report.');
+    }
+
+    expect(report.result.success).toBe(true);
+    expect(report.manifestDiagnostics).toEqual([]);
+    expect(
+      existsSync(path.join(report.outdir, '_locales/en/messages.json')),
+    ).toBe(true);
+  }, 30_000);
+
+  it('warns for non-default locale problems but fails for default problems', async () => {
+    const warningRoot = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: {
+    name: '__MSG_app_name__',
+    version: '1.0.0',
+    default_locale: 'en',
+  },
+  minify: false,
+};
+`,
+      'src/background.ts': 'export {};\n',
+      'src/_locales/en.i18n': '@app_name\nDefault Demo\n',
+      'src/_locales/hi.i18n': '@app_name\n',
+    });
+    const warningConfig = await resolveProjectConfig({ cwd: warningRoot });
+    const warningReports = await buildProject(warningConfig);
+    const warningReport = warningReports[0];
+
+    expect(warningReport).toBeDefined();
+
+    if (warningReport === undefined) {
+      throw new Error('Expected a warning build report.');
+    }
+
+    expect(warningReport.result.success).toBe(true);
+    expect(warningReport.manifestPath).not.toBeNull();
+    expect(
+      warningReport.manifestDiagnostics.some(
+        (diagnostic) => diagnostic.severity === 'warning',
+      ),
+    ).toBe(true);
+
+    const errorRoot = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: {
+    name: '__MSG_app_name__',
+    version: '1.0.0',
+    default_locale: 'en',
+  },
+  minify: false,
+};
+`,
+      'src/background.ts': 'export {};\n',
+      'src/_locales/en.i18n': '@app_name\n',
+    });
+    const errorConfig = await resolveProjectConfig({ cwd: errorRoot });
+    const errorReports = await buildProject(errorConfig);
+    const errorReport = errorReports[0];
+
+    expect(errorReport).toBeDefined();
+
+    if (errorReport === undefined) {
+      throw new Error('Expected an error build report.');
+    }
+
+    expect(errorReport.manifestPath).toBeNull();
+    expect(
+      errorReport.manifestDiagnostics.some(
+        (diagnostic) => diagnostic.severity === 'error',
+      ),
+    ).toBe(true);
+  }, 60_000);
 });
 
 function hasAsset(outputs: readonly string[], extension: string): boolean {
