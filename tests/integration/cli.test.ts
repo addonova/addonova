@@ -32,6 +32,7 @@ describe('CLI runner', () => {
 
     expect(helpIo.stdout()).toContain('Usage:');
     expect(helpIo.stdout()).toContain('info        Show environment');
+    expect(helpIo.stdout()).toContain('doctor      Diagnose the local');
     expect(helpIo.stdout()).toContain('zip         Package a built extension');
     expect(helpIo.stdout()).toContain('analyze     Report bundle inputs');
     expect(helpIo.stdout()).toContain('--include <glob>');
@@ -142,6 +143,46 @@ describe('CLI runner', () => {
     expect(stdout()).toContain('chrome (MV3), firefox (MV3)');
     expect(stdout()).toContain('Manifest');
     expect(stdout()).toContain('CLI Demo 1.0.0');
+  });
+
+  it('diagnoses the environment and prints JSON', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  entrypoints: { background: 'src/background.ts' },
+  manifest: { name: 'CLI Doctor', version: '1.0.0' },
+  browserApi: 'bundle',
+};
+`,
+      'src/background.ts': 'export {};\n',
+    });
+    installBrowserShim(root);
+    writeModule(root, 'guchho', 'export {};\n');
+    const { io, stdout, stderr } = createIo(root);
+
+    const exitCode = await runCli(['doctor', '--json', '--no-color'], io);
+
+    const output = stdout();
+    const start = output.indexOf('{');
+    const end = output.lastIndexOf('}');
+    const report = JSON.parse(output.slice(start, end + 1)) as {
+      ok: boolean;
+      summary: { failures: number };
+      checks: Array<{ id: string; status: string }>;
+    };
+
+    expect(exitCode).toBe(0);
+    expect(stderr()).toBe('');
+    expect(report.ok).toBe(true);
+    expect(report.summary.failures).toBe(0);
+    expect(report.checks.find((check) => check.id === 'node')?.status).toBe(
+      'ok',
+    );
+    expect(report.checks.find((check) => check.id === 'guchho')?.status).toBe(
+      'ok',
+    );
+    expect(
+      report.checks.find((check) => check.id === 'browser-api')?.status,
+    ).toBe('ok');
   });
 
   it('reports CLI parse errors and exits with code 1', async () => {
