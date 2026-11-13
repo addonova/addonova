@@ -10,6 +10,7 @@ Commands:
   dev         Watch sources and rebuild
   clean       Remove generated output
   info        Show environment and configuration details
+  doctor      Diagnose the local build environment
   validate    Validate configuration and manifest structure
   pack        Package a built extension
   zip         Package a built extension as a zip archive
@@ -29,7 +30,7 @@ Options:
   --include <glob>           Include matching files when packing (repeatable)
   --exclude <glob>           Exclude matching files when packing (repeatable)
   --sources                  Also pack a source archive for Firefox
-  --json                     Print the analysis report as JSON
+  --json                     Print the report as JSON (analyze, doctor)
   --verbose                  Show additional error details
   --debug                    Emit structured dev diagnostics to stderr
   --no-color                 Disable colored output
