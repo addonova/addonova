@@ -1,14 +1,21 @@
 import { statSync } from 'node:fs';
 import path from 'node:path';
 
-import { createJiti } from 'jiti';
-
 import {
   getBrowserTargetInfo,
   supportsManifestVersion,
 } from '../browser/targets.ts';
+import {
+  normalizeWebExtConfig,
+  resolveWebExtConfig,
+} from '../launcher/config.ts';
+import type {
+  ResolvedWebExtConfig,
+  WebExtConfig,
+} from '../launcher/types.ts';
 import { validatePlugins } from '../plugins/manager.ts';
 import type { AddonovaPlugin } from '../plugins/types.ts';
+import { loadConfigModule } from './config-module.ts';
 import { AddonovaError } from './errors.ts';
 import {
   deriveEntrypointName,
@@ -113,6 +120,7 @@ export interface AddonovaUserConfig {
   sourcemap?: SourcemapOption;
   mode?: BuildMode;
   browserApi?: BrowserApiMode | AddonovaBrowserApiConfig;
+  webExt?: WebExtConfig;
   plugins?: readonly AddonovaPlugin[];
   pack?: AddonovaPackConfig;
 }
@@ -156,6 +164,7 @@ export interface ResolvedConfig {
   minify: boolean;
   sourcemap: SourcemapOption;
   browserApi: ResolvedBrowserApiConfig;
+  webExt: ResolvedWebExtConfig;
   plugins: readonly AddonovaPlugin[];
   pack: ResolvedPackConfig;
 }
@@ -183,6 +192,7 @@ export interface ResolveProjectConfigOptions {
   explicitConfigPath?: string;
   overrides?: ConfigOverrides;
   defaultMode?: BuildMode;
+  homeDir?: string;
 }
 
 export function defineConfig<T extends AddonovaUserConfig>(config: T): T {
@@ -229,26 +239,11 @@ export function findConfigFile(startDir: string, explicitPath?: string): string 
 }
 
 export async function loadConfig(configPath: string): Promise<AddonovaUserConfig> {
-  const jiti = createJiti(import.meta.url, {
-    fsCache: false,
-    moduleCache: false,
-    interopDefault: true,
+  const loaded = await loadConfigModule(configPath, {
+    code: 'ADDONOVA_CONFIG_LOAD_FAILED',
+    message: 'Failed to load configuration',
+    suggestion: 'Check the configuration file for syntax or runtime errors.',
   });
-
-  let loaded: unknown;
-
-  try {
-    loaded = await jiti.import<unknown>(configPath, { default: true });
-  } catch (error) {
-    throw new AddonovaError({
-      code: 'ADDONOVA_CONFIG_LOAD_FAILED',
-      severity: 'error',
-      message: `Failed to load configuration: ${configPath}`,
-      location: { file: configPath },
-      suggestion: 'Check the configuration file for syntax or runtime errors.',
-      cause: error,
-    });
-  }
 
   if (!isPlainObject(loaded)) {
     throw configError(
@@ -267,8 +262,14 @@ export async function resolveProjectConfig(
 ): Promise<ResolvedConfig> {
   const configPath = findConfigFile(options.cwd, options.explicitConfigPath);
   const userConfig = configPath === null ? {} : await loadConfig(configPath);
+  const root = configPath === null ? path.resolve(options.cwd) : path.dirname(configPath);
+  const webExt = await resolveWebExtConfig(userConfig.webExt, {
+    root,
+    ...(options.homeDir === undefined ? {} : { homeDir: options.homeDir }),
+  });
+  const mergedConfig: AddonovaUserConfig = { ...userConfig, webExt };
 
-  return normalizeConfig(userConfig, {
+  return normalizeConfig(mergedConfig, {
     cwd: options.cwd,
     configPath,
     ...(options.overrides === undefined ? {} : { overrides: options.overrides }),
@@ -341,6 +342,7 @@ export function normalizeConfig(
       overrides.browserApi,
       configPath,
     ),
+    webExt: normalizeWebExtConfig(userConfig.webExt, configPath),
     plugins: validatePlugins(
       userConfig.plugins,
       configPath === null ? undefined : { file: configPath },
