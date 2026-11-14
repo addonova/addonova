@@ -1,6 +1,21 @@
-# Addonova
+<div align="center">
 
-Next-generation browser extension framework.
+# <img align="top" width="44" src="https://raw.githubusercontent.com/addonova/.github/refs/heads/main/profile/image/hero_logo.svg" alt="Addonova Logo"> Addonova
+
+[![npm version](https://img.shields.io/npm/v/addonova?labelColor=%23153c26&color=%23ccff00)](https://www.npmjs.com/package/addonova)
+[![downloads](https://img.shields.io/npm/dt/addonova?labelColor=%23153c26&color=%23ccff00)](https://www.npmjs.com/package/addonova)
+[![license | MIT](https://img.shields.io/npm/l/addonova?labelColor=%23153c26&color=%23ccff00)](https://github.com/addonova/addonova/blob/main/LICENSE)
+[![Sponsor](https://img.shields.io/badge/Sponsor-GitHub-red?labelColor=%23153c26&color=%23ccff00)](https://github.com/sponsors/code-hemu)
+
+**Next-generation browser extension framework.**
+
+[Get Started](https://github.com/addonova/addonova/blob/main/docs/guide/getting-started.md) •
+[API](docs/api/README.md) •
+[CLI reference](docs/reference/cli/README.md) •
+[Changelog](https://github.com/addonova/addonova/blob/main/CHANGELOG.md) •
+[Release notes](docs/release-notes/README.md)
+
+</div>
 
 Addonova turns a small configuration file and a set of entry points into one
 independently loadable extension directory per browser target. JavaScript,
@@ -11,17 +26,6 @@ The build engine is separate from browser compatibility rules, from the runtime
 helper package, and from the bundler integration. That separation keeps output
 predictable and makes validation explicit.
 
-Full documentation is in [`docs/`](docs/README.md).
-
-- [Guide](docs/guide/README.md) - concepts, setup, builds, and workflows.
-- [CLI reference](docs/reference/cli/README.md) - commands, options, and JSON
-  output.
-- [Configuration reference](docs/reference/config/README.md) - every
-  configuration option.
-- [API](docs/api/README.md) - public exports and programmatic APIs.
-- [Recipes](docs/recipes/README.md) - task-focused examples.
-- [Release notes](docs/release-notes/README.md) - changes by version.
-
 ## Installation
 
 ```bash
@@ -31,7 +35,6 @@ npm install --save-dev addonova
 Requirements:
 
 - Node.js 20 or newer.
-- npm.
 
 Addonova depends on the published `guchho@1.0.9` bundler and its native binary.
 Some npm versions ask for approval before running Guchho's install script.
