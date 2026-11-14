@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/package.json",
   "name": "addonova",
   "version": "1.0.7",
   "description": "Next-gen browser extension framework",
