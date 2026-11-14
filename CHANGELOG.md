@@ -3,7 +3,7 @@
 All notable changes to `addonova` are documented here.
 
 
-## [Unreleased]
+## [1.0.7]
 
 ### Added
 
