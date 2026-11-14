@@ -2,13 +2,6 @@
 
 Next-generation browser extension framework.
 
-Addonova is a TypeScript-first build tool for browser extensions. It targets
-Chrome, Chromium, Edge, and Firefox, supports Manifest V2 and V3 where each
-browser supports them, and keeps browser compatibility separate from the build
-engine.
-
-## 1. Introduction
-
 Addonova turns a small configuration file and a set of entry points into one
 independently loadable extension directory per browser target. JavaScript,
 TypeScript, CSS, HTML, and static assets are processed through a bundler adapter,
@@ -18,48 +11,18 @@ The build engine is separate from browser compatibility rules, from the runtime
 helper package, and from the bundler integration. That separation keeps output
 predictable and makes validation explicit.
 
-Status: implementation phases 0 through 7 are complete, and `@addonova/browser`
-is integrated through the `external` and `bundle` modes. The `init` command
-scaffolds projects from bundled and remote templates. The test suite covers all
-supported targets, production builds, packaging, plugins, development rebuilds,
-browser API bundling, and Windows hardening, and `npm run acceptance` verifies
-the built CLI end to end.
+Full documentation is in [`docs/`](docs/README.md).
 
-## 2. Features
+- [Guide](docs/guide/README.md) - concepts, setup, builds, and workflows.
+- [CLI reference](docs/reference/cli/README.md) - commands, options, and JSON
+  output.
+- [Configuration reference](docs/reference/config/README.md) - every
+  configuration option.
+- [API](docs/api/README.md) - public exports and programmatic APIs.
+- [Recipes](docs/recipes/README.md) - task-focused examples.
+- [Release notes](docs/release-notes/README.md) - changes by version.
 
-- Project scaffolding with `addonova init` and bundled or remote templates.
-- Chrome, Chromium, Edge, and Firefox targets.
-- Manifest V2 and V3 generation with per-browser overrides and automatic
-  MV2/MV3 field conversion.
-- File-based entrypoints from `src/entrypoints/` with `define*` helpers.
-- Manifest synthesis for background, content scripts, popup, options,
-  side panel, devtools, sandbox, and URL overrides.
-- Localized manifest messages from standard `public/_locales` files or flat
-  `src/_locales/*.i18n` sources.
-- TypeScript and JavaScript bundling with extension-safe IIFE output.
-- HTML entry points with rewritten script, stylesheet, and asset references.
-- `package.json` defaults, icon auto-discovery, and dotenv-based
-  `import.meta.env` values.
-- CSS processing, static assets, and `public/` copying.
-- Browser-specific manifest validation before output is published.
-- Development watcher with warm rebuild contexts, last-successful-output
-  preservation, and auto-reload of matching tabs and extensions.
-- Native browser launcher with automatic binary detection, isolated or
-  persistent profiles, and extension reloads on rebuild. No `web-ext`
-  dependency.
-- Production minification, HTML/CSS minification, tree shaking, and source maps.
-- Small plugin API with deterministic ordering and lifecycle hooks.
-- Extensibility hooks and a module system for entrypoints, aliases, generated
-  files, and manifest customization.
-- Per-target `@addonova/browser` integration with `external` and `bundle` modes.
-- `addonova doctor` environment diagnostics for Node.js, Guchho, configuration,
-  entrypoints, browser binaries, and the browser API package.
-- Colored, timed CLI output with file-tree build summaries and a TTY-aware
-  spinner.
-- ZIP, TAR, and TAR.GZ packaging with `manifest.json` at the archive root.
-- Actionable diagnostics with error codes, locations, and suggestions.
-
-## 3. Installation
+## Installation
 
 ```bash
 npm install --save-dev addonova
@@ -73,7 +36,7 @@ Requirements:
 Addonova depends on the published `guchho@1.0.9` bundler and its native binary.
 Some npm versions ask for approval before running Guchho's install script.
 
-## 4. Project setup
+## Project setup
 
 Scaffold a new project with a bundled template:
 
@@ -171,7 +134,7 @@ npx addonova build --browser chrome
 The output is written to `dist/chrome` and can be loaded as an unpacked
 extension.
 
-## 5. Configuration
+## Configuration
 
 Configuration is discovered from the nearest directory containing one of these
 files, in priority order:
@@ -357,7 +320,7 @@ ones: `.env`, `.env.local`, `.env.<mode>`, `.env.<mode>.local`, `.env.<browser>`
 `import.meta.env`, alongside `MODE`, `DEV`, `PROD`, `BROWSER`, and
 `MANIFEST_VERSION`.
 
-## 6. CLI reference
+## CLI reference
 
 ```bash
 addonova <command> [options]
@@ -419,7 +382,7 @@ per-extension colors, and a total size. Colors and the spinner are enabled only 
 stdout is a terminal. Set `NO_COLOR=1` to disable color, `FORCE_COLOR=1` to force
 it, or pass `--no-color` per command.
 
-## 7. Browser targets
+## Browser targets
 
 Supported targets are `chrome`, `chromium`, `edge`, and `firefox`.
 
@@ -442,7 +405,7 @@ deprecated; Firefox supports both. Firefox is the only target that accepts
 `browser_specific_settings` and `sidebar_action` without a compatibility
 warning.
 
-## 8. Manifest versions
+## Manifest versions
 
 Each target uses its default manifest version unless configuration or
 `--manifest-version` overrides it. All four targets currently default to MV3.
@@ -510,7 +473,7 @@ messages in other locales are warnings, so partial translations remain
 buildable. A locale defined by both source layouts is an error. `addonova
 validate` performs the same checks without writing output.
 
-## 9. Entry points
+## Entry points
 
 Entry points may be a single path, an array, or an object of names to paths:
 
@@ -543,7 +506,7 @@ Addonova keeps `@addonova/browser` external by default. Set
 `browserApi: 'bundle'` to alias the package to the selected target adapter and
 include it in the output instead.
 
-## 10. Development workflow
+## Development workflow
 
 ```bash
 npx addonova dev
@@ -656,7 +619,7 @@ key-by-key, arrays are replaced rather than concatenated, and explicit
 `undefined` values do not erase lower-precedence values. Changes to the project
 `addonova.config.*` trigger a config reload; the user-level file is not watched.
 
-## 11. Production builds
+## Production builds
 
 Production is the default mode for `build`:
 
@@ -742,7 +705,7 @@ npx addonova doctor
 npx addonova doctor --json
 ```
 
-## 12. Bundler integration
+## Bundler integration
 
 Addonova targets the published `guchho@1.0.9` Node.js API through a dedicated
 adapter behind an Addonova-owned interface. The adapter maps inputs to Guchho
@@ -773,7 +736,7 @@ Bundler errors and warnings preserve their original text, file, line, column, an
 suggestion where Guchho provides them. Adapter output includes outputs, inputs,
 duration, warnings, errors, and the metafile.
 
-## 13. Plugin development
+## Plugin development
 
 Plugins are small objects registered in configuration order:
 
@@ -822,7 +785,7 @@ plugin transform is bridged through a Guchho `load` hook. This is an
 implementation detail, not a guarantee that arbitrary Guchho plugins are
 compatible.
 
-## 14. Hooks and modules
+## Hooks and modules
 
 Hooks and modules extend a build without replacing the bundler. They are useful
 for generated files, shared entrypoints, aliases, and manifest or diagnostic
@@ -925,7 +888,7 @@ setup, hooks, aliases, and entrypoints before rebuilding. Module failures are
 reported as `ADDONOVA_MODULE_LOAD_FAILED`, `ADDONOVA_MODULE_INVALID`,
 `ADDONOVA_MODULE_SETUP_FAILED`, or `ADDONOVA_MODULE_DUPLICATE`.
 
-## 15. Runtime integration
+## Runtime integration
 
 The runtime helper package is `@addonova/browser`:
 
@@ -984,7 +947,7 @@ storage items, type-safe messaging and proxy services, content-script context
 and UI helpers, i18n helpers, and a fake browser with a Vitest plugin. See the
 `@addonova/browser` README for the runtime API and testing guides.
 
-## 16. Limitations
+## Limitations
 
 - Auto-reload performs full extension reloads rather than module-level HMR. It
   needs a background script or service worker; manifests using `background.page`
@@ -1015,6 +978,6 @@ and UI helpers, i18n helpers, and a fake browser with a Vitest plugin. See the
   `__MSG_` fields, not full store policy compliance. Localization checks cover
   manifest values, not `__MSG_` usage inside extension scripts or styles.
 
-## 17. License
+## License
 
 MIT
