@@ -4,7 +4,10 @@ import type { Diagnostic } from '../core/errors.ts';
 import type { BrowserTarget } from '../core/types.ts';
 import { getBrowserAdapter } from './adapters/index.ts';
 import type { LaunchBrowserOptions } from './adapters/index.ts';
-import { findBrowserBinary } from './browser-paths.ts';
+import {
+  browserNotFoundError,
+  resolveBrowserBinary,
+} from './browser-paths.ts';
 import { planBrowserProfile } from './profiles.ts';
 import type { SpawnFunction } from './process.ts';
 import type {
@@ -18,9 +21,11 @@ export interface CreateBrowserLauncherOptions {
   target: BrowserTarget;
   extensionDir: string;
   projectRoot: string;
+  homeDir?: string;
   config: ResolvedWebExtConfig;
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
+  exists?: (candidate: string) => boolean;
   spawn?: SpawnFunction;
   launchTimeoutMs?: number;
   protocolTimeoutMs?: number;
@@ -70,17 +75,35 @@ export function createBrowserLauncher(
       await disposeRunning();
     }
 
-    const binary = findBrowserBinary({
+    const binaryOptions = {
       target: options.target,
       binaries: options.config.binaries,
       root: options.projectRoot,
       ...(options.platform === undefined ? {} : { platform: options.platform }),
       ...(options.env === undefined ? {} : { env: options.env }),
-    });
+      ...(options.exists === undefined ? {} : { exists: options.exists }),
+    };
+    const resolved = resolveBrowserBinary(binaryOptions);
+
+    if (resolved === null) {
+      throw browserNotFoundError(binaryOptions);
+    }
+
+    if (resolved.matchedTarget !== resolved.requestedTarget) {
+      options.onWarning?.({
+        code: 'ADDONOVA_BROWSER_FALLBACK',
+        severity: 'warning',
+        message: `Could not find an installed ${resolved.requestedTarget} browser; using ${resolved.matchedTarget} instead.`,
+        suggestion: `Install ${resolved.requestedTarget} or set "webExt.binaries.${resolved.requestedTarget}" in your configuration.`,
+      });
+    }
+
+    const binary = resolved.binary;
     const profilePlan = planBrowserProfile({
       target: options.target,
       config: options.config,
       root: options.projectRoot,
+      ...(options.homeDir === undefined ? {} : { homeDir: options.homeDir }),
     });
 
     for (const warning of profilePlan.warnings) {
