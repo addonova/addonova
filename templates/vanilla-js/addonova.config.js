@@ -11,14 +11,8 @@ export default defineConfig({
     permissions: ['storage'],
     action: {
       default_title: '__MSG_app_name__',
-      default_icon: {
-        '16': 'icons/icon.svg',
-        '48': 'icons/icon.svg',
-      },
+      default_icon: 'icons/logo.svg',
     },
-    icons: {
-      '16': 'icons/icon.svg',
-      '48': 'icons/icon.svg',
-    },
+    icons: 'icons/logo.svg',
   },
 });
