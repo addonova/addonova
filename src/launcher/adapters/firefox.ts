@@ -1,7 +1,7 @@
 import { AddonovaError } from '../../core/errors.ts';
 import type { Diagnostic } from '../../core/errors.ts';
 import type { BidiClient } from '../bidi.ts';
-import { connectBidi } from '../bidi.ts';
+import { installFirefox } from '../install.ts';
 import {
   ManagedProcess,
 } from '../process.ts';
@@ -38,7 +38,6 @@ export const firefoxAdapter: BrowserAdapter = {
 
     const start = async (): Promise<StartedFirefox> => {
       const browserProcess = startFirefoxProcess(options);
-      let bidi: BidiClient | null = null;
       let extensionLoading = false;
 
       try {
@@ -46,13 +45,15 @@ export const firefoxAdapter: BrowserAdapter = {
           browserProcess,
           launchTimeoutMs,
         );
-        bidi = await connectBidi(bidiUrl, {
-          timeoutMs: protocolTimeoutMs,
-        });
-        await bidi.newSession();
-        extensionLoading = true;
-        const extensionId = await bidi.installWebExtension(
+        const { bidi, extensionId } = await installFirefox(
+          bidiUrl,
           options.extensionDir,
+          {
+            timeoutMs: protocolTimeoutMs,
+            onSessionEstablished: () => {
+              extensionLoading = true;
+            },
+          },
         );
 
         return {
@@ -61,7 +62,6 @@ export const firefoxAdapter: BrowserAdapter = {
           extensionId,
         };
       } catch (error) {
-        bidi?.dispose();
         await browserProcess.terminate(1_000);
 
         if (browserProcess.spawnError !== null) {
