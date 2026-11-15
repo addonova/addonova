@@ -18,9 +18,11 @@ interface CreateBrowserLauncherOptions {
   target: BrowserTarget;
   extensionDir: string;
   projectRoot: string;
+  homeDir?: string;
   config: ResolvedWebExtConfig;
   env?: NodeJS.ProcessEnv;
   platform?: NodeJS.Platform;
+  exists?: (candidate: string) => boolean;
   spawn?: SpawnFunction;
   launchTimeoutMs?: number;
   protocolTimeoutMs?: number;
