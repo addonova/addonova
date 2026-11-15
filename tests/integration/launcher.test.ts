@@ -13,6 +13,7 @@ import type { ChildProcess } from 'node:child_process';
 
 import { afterEach, describe, expect, it } from '@guchho/test';
 
+import type { Diagnostic } from '../../src/core/errors.ts';
 import { createDefaultWebExtConfig } from '../../src/launcher/config.ts';
 import { createBrowserLauncher } from '../../src/launcher/launcher.ts';
 import type { SpawnFunction } from '../../src/launcher/process.ts';
@@ -111,6 +112,36 @@ describe('browser launcher lifecycle', () => {
       path.join(project.root, '.addonova', 'browser-profiles', 'chrome'),
     );
     expect(existsSync(profilePath)).toBe(true);
+  });
+
+  it('warns when it falls back to another browser binary', async () => {
+    const project = createProject();
+    const fake = createFakeSpawn();
+    const warnings: Diagnostic[] = [];
+    const launcher = createBrowserLauncher({
+      target: 'chrome',
+      extensionDir: project.extensionDir,
+      projectRoot: project.root,
+      config: {
+        ...createDefaultWebExtConfig(),
+        binaries: { chromium: project.binary },
+      },
+      exists: (candidate) => candidate === project.binary,
+      spawn: fake.spawn,
+      launchTimeoutMs: 1_000,
+      protocolTimeoutMs: 1_000,
+      onWarning: (diagnostic) => {
+        warnings.push(diagnostic);
+      },
+    });
+
+    await launcher.launch();
+
+    expect(
+      warnings.some((warning) => warning.code === 'ADDONOVA_BROWSER_FALLBACK'),
+    ).toBe(true);
+
+    await launcher.close();
   });
 });
 
