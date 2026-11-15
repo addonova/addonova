@@ -198,8 +198,13 @@ Returns the Chromium or Firefox launcher adapter.
 | --- | --- |
 | `WebExtConfig` | User-facing launcher config. |
 | `ResolvedWebExtConfig` | Normalized launcher config. |
+| `DataPersistence` | `'none' \| 'project' \| 'user'`. |
+| `LauncherTarget` | Manifest targets plus extra browsers. |
 | `BrowserLauncher` | Launcher with `launch()`. |
 | `RunningBrowser` | Active browser process. |
 | `BrowserProfilePlan` | Profile path and persistence. |
 | `BrowserAdapter` | Adapter interface. |
 | `LaunchBrowserOptions` | Adapter launch options. |
+| `ResolvedBrowserBinary` | Resolved binary with matched target. |
+| `ChromiumInstallResult` | Chromium install result. |
+| `FirefoxInstallResult` | Firefox install result. |
