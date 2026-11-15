@@ -36,6 +36,7 @@ const config: ResolvedConfig = {
     define: true,
   },
   webExt: createDefaultWebExtConfig(),
+  icons: { convertSvg: true, sizes: [32, 48, 64, 128] },
   plugins: [],
   pack: {
     outFile: null,
