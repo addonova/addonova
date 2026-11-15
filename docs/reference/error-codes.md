@@ -109,8 +109,10 @@ optional suggestion.
 | `ADDONOVA_BROWSER_LAUNCH_FAILED` | Browser failed to launch. |
 | `ADDONOVA_BROWSER_EXTENSION_LOAD_FAILED` | Extension could not be loaded. |
 | `ADDONOVA_BROWSER_ARG_IGNORED` | Conflicting browser argument ignored. |
+| `ADDONOVA_BROWSER_FALLBACK` | Requested browser missing; another was used. |
 | `ADDONOVA_BROWSER_API_NOT_FOUND` | `@addonova/browser` is missing in bundle mode. |
 | `ADDONOVA_WEB_EXT_CONFIG_INVALID` | `webExt` configuration is invalid. |
+| `ADDONOVA_WEBEXT_OPTION_CONFLICT` | Conflicting `webExt` profile options; one was used. |
 
 ## Init
 
