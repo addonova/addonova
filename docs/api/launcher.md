@@ -60,7 +60,8 @@ Creates, launches, and returns a running browser.
 function findBrowserBinary(options: FindBrowserBinaryOptions): string;
 ```
 
-Throws `ADDONOVA_BROWSER_NOT_FOUND` when no executable is found.
+Throws `ADDONOVA_BROWSER_NOT_FOUND` when no executable is found. Uses the same
+fallback chain as `resolveBrowserBinary`.
 
 ```ts
 interface FindBrowserBinaryOptions {
@@ -70,6 +71,7 @@ interface FindBrowserBinaryOptions {
   platform?: NodeJS.Platform;
   env?: NodeJS.ProcessEnv;
   exists?: (candidate: string) => boolean;
+  allowFallback?: boolean;
 }
 ```
 
@@ -79,7 +81,82 @@ interface FindBrowserBinaryOptions {
 function tryFindBrowserBinary(options: FindBrowserBinaryOptions): string | null;
 ```
 
-Returns `null` instead of throwing.
+Returns `null` instead of throwing. Matches the exact target only and never uses
+fallbacks.
+
+## `resolveBrowserBinary`
+
+```ts
+function resolveBrowserBinary(
+  options: FindBrowserBinaryOptions,
+): ResolvedBrowserBinary | null;
+```
+
+Resolves the requested target, then walks `BROWSER_FALLBACKS` for that target
+when `allowFallback` is not `false`.
+
+```ts
+interface ResolvedBrowserBinary {
+  binary: string;
+  requestedTarget: BrowserTarget;
+  matchedTarget: LauncherTarget;
+}
+```
+
+## `browserNotFoundError`
+
+```ts
+function browserNotFoundError(options: FindBrowserBinaryOptions): AddonovaError;
+```
+
+Builds the `ADDONOVA_BROWSER_NOT_FOUND` error used by `findBrowserBinary` and the
+launcher.
+
+## `installChromium`
+
+```ts
+async function installChromium(
+  browserProcess: ManagedProcess,
+  extensionDir: string,
+  options?: InstallExtensionOptions,
+): Promise<ChromiumInstallResult>;
+```
+
+Connects to the browser CDP pipe and loads an unpacked extension. Returns the
+client and the extension id. The client is disposed automatically on failure.
+
+```ts
+interface InstallExtensionOptions {
+  timeoutMs?: number;
+  onSessionEstablished?: () => void;
+}
+
+interface ChromiumInstallResult {
+  cdp: CdpClient;
+  extensionId: string;
+}
+```
+
+## `installFirefox`
+
+```ts
+async function installFirefox(
+  debuggerUrl: string,
+  extensionDir: string,
+  options?: InstallExtensionOptions,
+): Promise<FirefoxInstallResult>;
+```
+
+Connects over WebDriver BiDi, starts a session, and installs the extension. The
+`onSessionEstablished` callback fires after `session.new` succeeds. The client is
+disposed automatically on failure.
+
+```ts
+interface FirefoxInstallResult {
+  bidi: BidiClient;
+  extensionId: string;
+}
+```
 
 ## `mergeWebExtConfig`
 
