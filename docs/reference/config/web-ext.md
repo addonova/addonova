@@ -33,7 +33,9 @@ export default defineConfig({
 | `firefoxArgs` | string[] | `[]` | Extra Firefox arguments. |
 | `chromiumProfile` | string | temporary | Persistent Chromium profile. |
 | `firefoxProfile` | string | temporary | Persistent Firefox profile. |
-| `keepProfileChanges` | boolean | `false` | Use `.addonova/browser-profiles/<target>`. |
+| `keepProfileChanges` | boolean | `false` | Alias for `dataPersistence: 'project'`. |
+| `dataPersistence` | `'none' \| 'project' \| 'user'` | `'none'` | Profile persistence strategy. |
+| `projectDataDir` | string | `.addonova/browser-profiles` | Base directory for project profiles. |
 | `startUrls` | string[] | `[]` | URLs opened at launch. |
 
 ## Binaries
@@ -53,12 +55,27 @@ export default defineConfig({
 });
 ```
 
+Keys accept the manifest targets (`chrome`, `chromium`, `edge`, `firefox`) and
+additional launcher targets: `brave`, `arc`, `dia`, `chrome-beta`,
+`chrome-canary`, `chrome-dev`, `edge-beta`, `edge-canary`, `edge-dev`,
+`firefox-nightly`, `firefox-developer-edition`, and `zen`.
+
+When the requested target cannot be found, Addonova falls back to another
+browser of the same family (for example `chrome` -> `chromium` -> `brave`) and
+reports an `ADDONOVA_BROWSER_FALLBACK` warning. Set
+`binaries[target]` to pin an exact executable.
+
 ## Profiles
 
 - Default launches use an isolated temporary profile removed on shutdown.
 - `chromiumProfile` and `firefoxProfile` reuse persistent directories.
-- `keepProfileChanges: true` stores profiles under
-  `.addonova/browser-profiles/<target>`.
+- `dataPersistence: 'project'` stores profiles under
+  `projectDataDir/<target>` (default `.addonova/browser-profiles/<target>`).
+- `dataPersistence: 'user'` stores profiles under
+  `~/.addonova/browser-profiles/<target>`.
+- `keepProfileChanges: true` is kept as an alias for
+  `dataPersistence: 'project'`. When both are set, `dataPersistence` wins and an
+  `ADDONOVA_WEBEXT_OPTION_CONFLICT` warning is reported.
 - A `--user-data-dir=` entry in `chromiumArgs` or `--profile` in `firefoxArgs`
   is treated as a persistent profile.
 - Persistent profiles are never deleted automatically.
