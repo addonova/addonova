@@ -150,8 +150,11 @@ function createConfig(
       chromiumProfile: null,
       firefoxProfile: null,
       keepProfileChanges: false,
+      dataPersistence: 'none',
+      projectDataDir: null,
       startUrls: [],
     },
+    icons: { convertSvg: true, sizes: [32, 48, 64, 128] },
     plugins: [],
     pack: {
       outFile: null,
