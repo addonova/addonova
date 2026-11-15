@@ -5,6 +5,7 @@ import { describe, expect, it } from '@guchho/test';
 import { AddonovaError } from '../../src/core/errors.ts';
 import {
   findBrowserBinary,
+  resolveBrowserBinary,
   tryFindBrowserBinary,
 } from '../../src/launcher/browser-paths.ts';
 
@@ -89,6 +90,58 @@ describe('browser binary detection', () => {
     });
 
     expect(binary).toBe(expected);
+  });
+
+  it('falls back to another browser of the same family', () => {
+    const expected = '/usr/bin/chromium';
+    const resolved = resolveBrowserBinary({
+      target: 'chrome',
+      platform: 'linux',
+      env: {},
+      exists: (candidate) => candidate === expected,
+    });
+
+    expect(resolved).toEqual({
+      binary: expected,
+      requestedTarget: 'chrome',
+      matchedTarget: 'chromium',
+    });
+  });
+
+  it('does not fall back when fallback is disabled', () => {
+    const resolved = resolveBrowserBinary({
+      target: 'chrome',
+      platform: 'linux',
+      env: {},
+      allowFallback: false,
+      exists: (candidate) => candidate === '/usr/bin/chromium',
+    });
+
+    expect(resolved).toBeNull();
+  });
+
+  it('keeps the exact-target lookup free of fallbacks', () => {
+    const binary = tryFindBrowserBinary({
+      target: 'chrome',
+      platform: 'linux',
+      env: {},
+      exists: (candidate) => candidate === '/usr/bin/chromium',
+    });
+
+    expect(binary).toBeNull();
+  });
+
+  it('resolves a configured launcher-only browser through fallback', () => {
+    const resolved = resolveBrowserBinary({
+      target: 'chrome',
+      binaries: { brave: '/custom/brave' },
+      platform: 'linux',
+      env: {},
+      exists: (candidate) => candidate === '/custom/brave',
+    });
+
+    expect(resolved?.binary).toBe('/custom/brave');
+    expect(resolved?.matchedTarget).toBe('brave');
   });
 
   it('throws a missing-browser diagnostic', () => {
