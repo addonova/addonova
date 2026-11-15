@@ -42,5 +42,21 @@ describe('icon discovery', () => {
     expect(discovered.warnings).toHaveLength(2);
     expect(discovered.warnings[0]).toContain('unsupported icon file');
     expect(discovered.warnings[1]).toContain('no matching dark theme icon');
+    expect(discovered.bareIcon).toBeNull();
+  });
+
+  it('discovers a bare icon and prefers SVG over PNG', () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'addonova-icons-'));
+    tempDirs.push(root);
+    writeFileSync(path.join(root, 'icon.png'), 'png');
+    writeFileSync(path.join(root, 'icon.svg'), 'svg');
+
+    expect(discoverIcons(root).bareIcon).toBe('icon.svg');
+
+    const pngOnly = mkdtempSync(path.join(tmpdir(), 'addonova-icons-'));
+    tempDirs.push(pngOnly);
+    writeFileSync(path.join(pngOnly, 'icon.png'), 'png');
+
+    expect(discoverIcons(pngOnly).bareIcon).toBe('icon.png');
   });
 });
