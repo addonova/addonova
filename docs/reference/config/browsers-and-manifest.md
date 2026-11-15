@@ -104,10 +104,47 @@ export default defineConfig({
 });
 ```
 
+## `icons`
+
+Type: `{ convertSvg?: boolean; sizes?: number[] }`
+
+Default: `{ convertSvg: true, sizes: [32, 48, 64, 128] }`
+
+Rasterizes SVG icons referenced by the manifest into PNGs during `build` and
+`dev`, so browsers that do not render SVG extension icons still get a full icon
+set. The source SVG is copied to the output unchanged.
+
+```ts
+export default defineConfig({
+  icons: {
+    convertSvg: true,
+    sizes: [32, 48, 64, 128],
+  },
+});
+```
+
+- A string reference such as `"icons/icon.svg"` expands to every configured
+  size (`icons/icon-32.png`, `icons/icon-48.png`, ...).
+- A sized dictionary entry such as `{ "48": "icons/icon.svg" }` produces
+  `icons/icon-48.png` for that key only.
+- `action`/`browser_action`/`page_action` `default_icon` and `theme_icons`
+  entries are rewritten the same way.
+- Set `convertSvg: false` to leave SVG references untouched.
+- Supported markup covers `rect`, `circle`, `ellipse`, `line`, `polyline`,
+  `polygon`, `path`, `g`, `defs`, `use`, `clipPath`, linear/radial gradients,
+  transforms, and the common fill/stroke attributes. Unsupported elements
+  (`text`, `image`, `filter`, `mask`, `pattern`, `foreignObject`, `<style>`)
+  are skipped with a warning.
+
 ## Defaults
 
 - `name` and `version` fall back to `package.json`.
 - Prerelease versions are sanitized and preserved in `version_name`.
 - Icons matching `icon-<size>.(png|svg)` are discovered from `public/` and
   `public/icons/`.
+- A bare `icon.svg` or `icon.png` is used as the base icon when no sized icons
+  are present.
 - `icon-light-*` and `icon-dark-*` pairs become `theme_icons`.
+- Prefer PNG for manifest icons. Some browsers do not render SVG extension
+  icons, so bundled templates either ship pre-rendered `icon-16.png` through
+  `icon-128.png` or a single SVG source that is rasterized at build time.
