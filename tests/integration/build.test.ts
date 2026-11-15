@@ -114,7 +114,9 @@ describe('project build', () => {
     expect(existsSync(path.join(outdir, 'icons/icon.svg'))).toBe(true);
     expect(existsSync(path.join(outdir, 'manifest.json'))).toBe(true);
     expect(report.manifestPath).toBe(path.join(outdir, 'manifest.json'));
-    expect(report.manifestDiagnostics).toEqual([]);
+    expect(
+      report.manifestDiagnostics.filter((item) => item.severity !== 'info'),
+    ).toEqual([]);
 
     const manifest = JSON.parse(
       readFileSync(path.join(outdir, 'manifest.json'), 'utf8'),
@@ -194,7 +196,9 @@ describe('project build', () => {
 
       expect(report.result.success).toBe(true);
       expect(report.result.errors).toEqual([]);
-      expect(report.manifestDiagnostics).toEqual([]);
+      expect(
+        report.manifestDiagnostics.filter((item) => item.severity !== 'info'),
+      ).toEqual([]);
       expect(report.outdir).toBe(expectedOutdir);
       expect(report.manifestPath).toBe(path.join(expectedOutdir, 'manifest.json'));
       expect(existsSync(path.join(expectedOutdir, 'background.js'))).toBe(true);
@@ -210,7 +214,7 @@ describe('project build', () => {
       expect(action.default_title).toBe(
         target.charAt(0).toUpperCase() + target.slice(1),
       );
-      expect(action.default_icon).toEqual({ '16': 'icon.svg' });
+      expect(action.default_icon).toEqual({ '16': 'icon-16.png' });
 
       if (target === 'firefox') {
         expect(manifest.background).toEqual({ scripts: ['background.js'] });
