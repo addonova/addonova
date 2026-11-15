@@ -68,7 +68,7 @@ describe('CLI runner', () => {
     const exitCode = await runCli(['build', '--no-color'], io);
 
     expect(exitCode).toBe(0);
-    expect(stderr()).toBe('');
+    expect(stderr()).toContain('ADDONOVA_ICON_SVG_CONVERTED');
     expect(stdout()).toContain('Built chrome MV3');
     expect(
       existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
@@ -94,7 +94,7 @@ describe('CLI runner', () => {
     const exitCode = await runCli(['build', '--no-color'], io);
 
     expect(exitCode).toBe(0);
-    expect(stderr()).toBe('');
+    expect(stderr()).toContain('ADDONOVA_ICON_SVG_CONVERTED');
     expect(stdout()).toContain('Built chrome MV3');
     expect(
       existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
@@ -113,7 +113,7 @@ describe('CLI runner', () => {
     const exitCode = await runCli(['build', '--no-color'], io);
 
     expect(exitCode).toBe(0);
-    expect(stderr()).toBe('');
+    expect(stderr()).toContain('ADDONOVA_ICON_SVG_CONVERTED');
     expect(stdout()).toContain('Built chrome MV3');
     expect(
       existsSync(path.join(root, 'app', 'dist', 'chrome', 'manifest.json')),
