@@ -14,6 +14,7 @@ export interface PlanBrowserProfileOptions {
   config: ResolvedWebExtConfig;
   root: string;
   tempDir?: string;
+  homeDir?: string;
 }
 
 export interface BrowserProfilePlanResult {
@@ -62,15 +63,46 @@ export function planBrowserProfile(
     };
   }
 
-  if (config.keepProfileChanges) {
+  const dataPersistence = config.dataPersistence ?? 'none';
+
+  if (dataPersistence !== 'none' && config.keepProfileChanges) {
+    warnings.push({
+      code: 'ADDONOVA_WEBEXT_OPTION_CONFLICT',
+      severity: 'warning',
+      message: `Both "webExt.dataPersistence" and "webExt.keepProfileChanges" are configured; using dataPersistence: "${dataPersistence}".`,
+      suggestion:
+        'Remove "webExt.keepProfileChanges" or set "webExt.dataPersistence" to "none".',
+    });
+  }
+
+  const persistence =
+    dataPersistence !== 'none'
+      ? dataPersistence
+      : config.keepProfileChanges
+        ? 'project'
+        : 'none';
+
+  if (persistence === 'project') {
+    const base =
+      config.projectDataDir !== null
+        ? resolveProfilePath(root, config.projectDataDir)
+        : path.join(root, '.addonova', 'browser-profiles');
+
     return {
       profile: {
-        path: path.join(
-          root,
-          '.addonova',
-          'browser-profiles',
-          target,
-        ),
+        path: path.join(base, target),
+        persistent: true,
+      },
+      warnings,
+    };
+  }
+
+  if (persistence === 'user') {
+    const home = options.homeDir ?? os.homedir();
+
+    return {
+      profile: {
+        path: path.join(home, '.addonova', 'browser-profiles', target),
         persistent: true,
       },
       warnings,
