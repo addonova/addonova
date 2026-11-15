@@ -257,6 +257,44 @@ describe('configuration resolution', () => {
     );
   });
 
+  it('rejects invalid icon configuration', async () => {
+    const badShape = createProject({
+      'addonova.config.ts': `export default { icons: true };\n`,
+    });
+    const badConvert = createProject({
+      'addonova.config.ts': `export default { icons: { convertSvg: 'yes' } };\n`,
+    });
+    const badSizes = createProject({
+      'addonova.config.ts': `export default { icons: { sizes: [0, 32] } };\n`,
+    });
+
+    await expectConfigErrorAsync(
+      () => resolveProjectConfig({ cwd: badShape }),
+      'ADDONOVA_CONFIG_ICONS',
+    );
+    await expectConfigErrorAsync(
+      () => resolveProjectConfig({ cwd: badConvert }),
+      'ADDONOVA_CONFIG_ICONS',
+    );
+    await expectConfigErrorAsync(
+      () => resolveProjectConfig({ cwd: badSizes }),
+      'ADDONOVA_CONFIG_ICONS',
+    );
+  });
+
+  it('normalizes icon configuration with defaults and deduped sizes', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  icons: { sizes: [64, 32, 32, 128] },
+};
+`,
+    });
+
+    const config = await resolveProjectConfig({ cwd: root });
+
+    expect(config.icons).toEqual({ convertSvg: true, sizes: [32, 64, 128] });
+  });
+
   it('rejects an explicit config path that does not exist', () => {
     const root = createProject({});
 
