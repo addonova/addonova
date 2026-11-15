@@ -1,10 +1,8 @@
 import { AddonovaError } from '../../core/errors.ts';
 import type { Diagnostic } from '../../core/errors.ts';
 import type { CdpClient } from '../cdp.ts';
-import {
-  connectCdpPipe,
-  isMethodNotFoundError,
-} from '../cdp.ts';
+import { isMethodNotFoundError } from '../cdp.ts';
+import { installChromium } from '../install.ts';
 import {
   ManagedProcess,
 } from '../process.ts';
@@ -41,11 +39,13 @@ export const chromiumAdapter: BrowserAdapter = {
 
     const startWithCdp = async (): Promise<StartedChromium | null> => {
       const browserProcess = startChromiumProcess(options);
-      let cdp: CdpClient | null = null;
 
       try {
-        cdp = connectCdpPipe(browserProcess.child, protocolTimeoutMs);
-        const extensionId = await cdp.loadUnpacked(options.extensionDir);
+        const { cdp, extensionId } = await installChromium(
+          browserProcess,
+          options.extensionDir,
+          { timeoutMs: protocolTimeoutMs },
+        );
 
         return {
           process: browserProcess,
@@ -54,7 +54,6 @@ export const chromiumAdapter: BrowserAdapter = {
           mode: 'cdp',
         };
       } catch (error) {
-        cdp?.dispose();
         await browserProcess.terminate(1_000);
 
         if (isMethodNotFoundError(error)) {
