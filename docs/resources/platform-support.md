@@ -52,7 +52,10 @@ hold output files open.
 - Firefox reloads use WebDriver BiDi `webExtension.install` and require a recent
   Firefox release with extension installation support.
 - Browser binaries are discovered from common install paths, `PATH`, or
-  `webExt.binaries`.
+  `webExt.binaries`. Extra launcher targets (`brave`, `arc`, `dia`, Chrome/Edge
+  Beta/Canary/Dev, Firefox Nightly/Developer Edition, and `zen`) are detected
+  too, and a missing target falls back to another browser of the same family with
+  an `ADDONOVA_BROWSER_FALLBACK` warning.
 
 ## Related
 
