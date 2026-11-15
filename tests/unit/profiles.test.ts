@@ -107,6 +107,81 @@ describe('browser profile planning', () => {
     });
   });
 
+  it('persists profiles in the project when dataPersistence is "project"', () => {
+    const root = createTempDir();
+    const result = planBrowserProfile({
+      target: 'chrome',
+      root,
+      config: {
+        ...createDefaultWebExtConfig(),
+        dataPersistence: 'project',
+      },
+    });
+
+    expect(result.profile).toEqual({
+      path: path.join(root, '.addonova', 'browser-profiles', 'chrome'),
+      persistent: true,
+    });
+  });
+
+  it('honors a custom project data directory', () => {
+    const root = createTempDir();
+    const result = planBrowserProfile({
+      target: 'chrome',
+      root,
+      config: {
+        ...createDefaultWebExtConfig(),
+        dataPersistence: 'project',
+        projectDataDir: 'custom/profiles',
+      },
+    });
+
+    expect(result.profile).toEqual({
+      path: path.join(root, 'custom/profiles', 'chrome'),
+      persistent: true,
+    });
+  });
+
+  it('persists profiles in the home directory when dataPersistence is "user"', () => {
+    const root = createTempDir();
+    const home = createTempDir();
+    const result = planBrowserProfile({
+      target: 'firefox',
+      root,
+      homeDir: home,
+      config: {
+        ...createDefaultWebExtConfig(),
+        dataPersistence: 'user',
+      },
+    });
+
+    expect(result.profile).toEqual({
+      path: path.join(home, '.addonova', 'browser-profiles', 'firefox'),
+      persistent: true,
+    });
+  });
+
+  it('warns when dataPersistence and keepProfileChanges are both set', () => {
+    const root = createTempDir();
+    const home = createTempDir();
+    const result = planBrowserProfile({
+      target: 'chrome',
+      root,
+      homeDir: home,
+      config: {
+        ...createDefaultWebExtConfig(),
+        dataPersistence: 'user',
+        keepProfileChanges: true,
+      },
+    });
+
+    expect(result.profile.path).toBe(
+      path.join(home, '.addonova', 'browser-profiles', 'chrome'),
+    );
+    expect(result.warnings).toHaveLength(1);
+    expect(result.warnings[0]?.code).toBe('ADDONOVA_WEBEXT_OPTION_CONFLICT');
+  });
+
   it('creates an isolated temporary profile by default', () => {
     const root = createTempDir();
     const tempDir = createTempDir();
