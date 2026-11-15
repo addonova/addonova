@@ -29,7 +29,7 @@ my-extension/
 ├── addonova.config.ts
 ├── package.json
 ├── public/
-│   └── icons/icon-128.png
+│   └── icons/logo.svg
 └── src/
     ├── entrypoints/
     │   ├── background.ts
@@ -72,8 +72,16 @@ dist/chrome/
 ├── popup.html
 ├── popup.js
 ├── popup.css
-└── icons/icon-128.png
+└── icons/
+    ├── logo.svg
+    ├── logo-32.png
+    ├── logo-48.png
+    ├── logo-64.png
+    └── logo-128.png
 ```
+
+The bundled `logo.svg` is rasterized to the configured sizes at build time (see
+the `icons` option in the configuration reference).
 
 ## Load unpacked
 
