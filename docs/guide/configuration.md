@@ -42,6 +42,7 @@ works at runtime.
 | `browsers` | target[] or object | `['chrome']` | Targets and per-browser manifest overrides. |
 | `manifest` | object or function | `{}` | Base manifest merged into every target. |
 | `convertManifest` | boolean | `true` | Convert MV3-first fields per target. |
+| `icons` | object | `{ convertSvg: true, sizes: [32, 48, 64, 128] }` | Rasterize manifest SVG icons to PNG. |
 | `outdir` | string | `dist` | Output directory. |
 | `publicDir` | string | `public` | Files copied into each target. |
 | `mode` | `development` or `production` | `production` | Build mode. |
