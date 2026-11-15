@@ -74,6 +74,8 @@ describe('launcher configuration', () => {
       chromiumProfile: null,
       firefoxProfile: null,
       keepProfileChanges: true,
+      dataPersistence: 'none',
+      projectDataDir: null,
       startUrls: ['https://global.example'],
     });
   });
@@ -194,6 +196,57 @@ describe('launcher configuration', () => {
           homeDir: path.join(root, 'home'),
         }),
       'ADDONOVA_CONFIG_LOAD_FAILED',
+    );
+  });
+
+  it('accepts launcher-only binary targets', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  webExt: { binaries: { brave: '/custom/brave' } },
+};
+`,
+    });
+
+    const config = await resolveProjectConfig({
+      cwd: root,
+      homeDir: path.join(root, 'home'),
+    });
+
+    expect(config.webExt.binaries).toEqual({ brave: '/custom/brave' });
+  });
+
+  it('resolves data persistence options', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  webExt: { dataPersistence: 'project', projectDataDir: 'profiles' },
+};
+`,
+    });
+
+    const config = await resolveProjectConfig({
+      cwd: root,
+      homeDir: path.join(root, 'home'),
+    });
+
+    expect(config.webExt.dataPersistence).toBe('project');
+    expect(config.webExt.projectDataDir).toBe('profiles');
+  });
+
+  it('rejects invalid data persistence modes', async () => {
+    const root = createProject({
+      'addonova.config.ts': `export default {
+  webExt: { dataPersistence: 'sometimes' },
+};
+`,
+    });
+
+    await expectError(
+      () =>
+        resolveProjectConfig({
+          cwd: root,
+          homeDir: path.join(root, 'home'),
+        }),
+      'ADDONOVA_WEB_EXT_CONFIG_INVALID',
     );
   });
 });
