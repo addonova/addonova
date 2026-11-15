@@ -123,7 +123,7 @@ describe('target fixtures', () => {
         name: 'Target Fixture',
         version: '1.0.0',
         background: fixture.background,
-        icons: { '48': 'icons/icon.svg' },
+        icons: { '48': 'icons/icon-48.png' },
         content_scripts: [
           { matches: ['https://example.com/*'], js: ['content.js'] },
         ],
@@ -131,11 +131,25 @@ describe('target fixtures', () => {
       });
       expect(manifest[fixture.action]).toMatchObject({
         default_popup: 'popup.html',
-        default_icon: 'icons/icon.svg',
+        default_icon: {
+          '32': 'icons/icon-32.png',
+          '48': 'icons/icon-48.png',
+          '64': 'icons/icon-64.png',
+          '128': 'icons/icon-128.png',
+        },
       });
       expect(manifest[fixture.action === 'action' ? 'browser_action' : 'action'])
         .toBeUndefined();
       expect(existsSync(path.join(targetOutdir, 'icons/icon.svg'))).toBe(true);
+      for (const size of [32, 48, 64, 128]) {
+        const iconPath = path.join(targetOutdir, `icons/icon-${size}.png`);
+        const icon = readFileSync(iconPath);
+
+        expect(existsSync(iconPath)).toBe(true);
+        expect([...icon.subarray(0, 8)]).toEqual([
+          0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        ]);
+      }
       expect(popup).not.toContain('popup.ts');
       expect(popup).toMatch(/assets\/[^"]+\.js/);
       expect(popup).toMatch(/assets\/[^"]+\.css/);
