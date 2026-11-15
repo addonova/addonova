@@ -1,7 +1,7 @@
-import { isBrowserTarget } from '../core/types.ts';
-import type { BrowserTarget } from '../core/types.ts';
 import { AddonovaError } from '../core/errors.ts';
+import { DATA_PERSISTENCE_MODES, isLauncherTarget, LAUNCHER_TARGETS } from './types.ts';
 import type {
+  LauncherTarget,
   ResolvedWebExtConfig,
   WebExtConfig,
 } from './types.ts';
@@ -10,7 +10,7 @@ export function mergeWebExtConfig(
   ...sources: readonly (WebExtConfig | undefined)[]
 ): WebExtConfig {
   const merged: WebExtConfig = {};
-  let binaries: Partial<Record<BrowserTarget, string>> | undefined;
+  let binaries: Partial<Record<LauncherTarget, string>> | undefined;
 
   for (const source of sources) {
     if (source === undefined) {
@@ -27,7 +27,7 @@ export function mergeWebExtConfig(
       if (key === 'binaries') {
         binaries = {
           ...(binaries ?? {}),
-          ...(value as Partial<Record<BrowserTarget, string>>),
+          ...(value as Partial<Record<LauncherTarget, string>>),
         };
         continue;
       }
@@ -63,6 +63,8 @@ export function normalizeWebExtConfig(
     chromiumProfile: config.chromiumProfile ?? null,
     firefoxProfile: config.firefoxProfile ?? null,
     keepProfileChanges: config.keepProfileChanges ?? false,
+    dataPersistence: config.dataPersistence ?? 'none',
+    projectDataDir: config.projectDataDir ?? null,
     startUrls: config.startUrls ?? [],
   };
 }
@@ -76,6 +78,8 @@ export function createDefaultWebExtConfig(): ResolvedWebExtConfig {
     chromiumProfile: null,
     firefoxProfile: null,
     keepProfileChanges: false,
+    dataPersistence: 'none',
+    projectDataDir: null,
     startUrls: [],
   };
 }
@@ -98,7 +102,29 @@ function assertWebExtConfigObject(
   validateOptionalString(value, 'chromiumProfile', configPath);
   validateOptionalString(value, 'firefoxProfile', configPath);
   validateOptionalBoolean(value, 'keepProfileChanges', configPath);
+  validateDataPersistence(value.dataPersistence, configPath);
+  validateOptionalString(value, 'projectDataDir', configPath);
   validateOptionalStringArray(value, 'startUrls', configPath);
+}
+
+function validateDataPersistence(
+  value: unknown,
+  configPath: string | null,
+): void {
+  if (value === undefined) {
+    return;
+  }
+
+  if (
+    typeof value !== 'string' ||
+    !(DATA_PERSISTENCE_MODES as readonly string[]).includes(value)
+  ) {
+    throw invalidWebExtConfig(
+      configPath,
+      'The "webExt.dataPersistence" option must be "none", "project", or "user".',
+      `Use one of: ${DATA_PERSISTENCE_MODES.join(', ')}.`,
+    );
+  }
 }
 
 function validateBinaries(
@@ -117,11 +143,11 @@ function validateBinaries(
   }
 
   for (const [target, binary] of Object.entries(value)) {
-    if (!isBrowserTarget(target)) {
+    if (!isLauncherTarget(target)) {
       throw invalidWebExtConfig(
         configPath,
         `The "webExt.binaries" option contains an unsupported browser target "${target}".`,
-        'Use one of: chrome, chromium, edge, firefox.',
+        `Use one of: ${LAUNCHER_TARGETS.join(', ')}.`,
       );
     }
 
