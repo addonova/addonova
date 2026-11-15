@@ -79,7 +79,7 @@ my-extension/
 ├── addonova.config.ts
 ├── public/
 │   └── icons/
-│       └── icon.svg
+│       └── logo.svg
 └── src/
     └── entrypoints/
         ├── background.ts
@@ -120,7 +120,7 @@ export default defineConfig({
     name: 'My Extension',
     permissions: ['storage'],
     icons: {
-      '48': 'icons/icon.svg',
+      '48': 'icons/icon-48.png',
     },
   },
 });
@@ -176,6 +176,8 @@ export default defineConfig({
     chromiumArgs: [],
     firefoxArgs: [],
     keepProfileChanges: false,
+    dataPersistence: 'none',
+    projectDataDir: null,
     startUrls: [],
   },
   plugins: [],
@@ -200,6 +202,7 @@ export default defineConfig({
 | `browsers` | target[] or override object | `['chrome']` | Targets to build. Overrides may set manifest fields. |
 | `manifest` | object or function | `{}` | Base manifest merged into every target. Functions receive `{ browser, manifestVersion, mode, command }`. |
 | `convertManifest` | boolean | `true` | Convert MV3-first fields to MV2 and back per target. |
+| `icons` | object | `{ convertSvg: true, sizes: [32, 48, 64, 128] }` | Rasterize manifest SVG icons to PNG at the given sizes. |
 | `outdir` | string | `dist` | Output directory, resolved from the config file. |
 | `publicDir` | string | `public` | Files copied after a successful build. |
 | `mode` | `development` or `production` | `production` | Build mode. `dev` defaults to development. |
@@ -207,12 +210,14 @@ export default defineConfig({
 | `sourcemap` | boolean or mode | development | `true`, `false`, `inline`, `external`, `linked`, `both`, or `none`. |
 | `browserApi` | mode or object | `'external'` | How `@addonova/browser` is handled. `'external'` keeps it external; `'bundle'` aliases and bundles the target adapter. The object form is `{ mode, package, define }`. |
 | `webExt.disabled` | boolean | `false` | Disable automatic browser launching during `dev`. |
-| `webExt.binaries` | object | `{}` | Custom browser executables keyed by target: `chrome`, `chromium`, `edge`, `firefox`. |
+| `webExt.binaries` | object | `{}` | Custom browser executables keyed by target: `chrome`, `chromium`, `edge`, `firefox`, plus `brave`, `arc`, `dia`, `chrome-beta`, `chrome-canary`, `chrome-dev`, `edge-beta`, `edge-canary`, `edge-dev`, `firefox-nightly`, `firefox-developer-edition`, and `zen`. Missing targets fall back to the same browser family. |
 | `webExt.chromiumArgs` | string[] | `[]` | Extra arguments for Chromium-based browsers. Required launcher flags are protected. |
 | `webExt.firefoxArgs` | string[] | `[]` | Extra arguments for Firefox. Required launcher flags are protected. |
 | `webExt.chromiumProfile` | string | isolated | Persistent Chromium profile directory, resolved from the project root. |
 | `webExt.firefoxProfile` | string | isolated | Persistent Firefox profile directory, resolved from the project root. |
-| `webExt.keepProfileChanges` | boolean | `false` | Reuse a persistent profile under `.addonova/browser-profiles/<target>` instead of a temporary profile. |
+| `webExt.keepProfileChanges` | boolean | `false` | Alias for `dataPersistence: 'project'`. |
+| `webExt.dataPersistence` | `none`, `project`, or `user` | `none` | Profile persistence: temporary, project-local, or user-level. |
+| `webExt.projectDataDir` | string | `.addonova/browser-profiles` | Base directory for `project` profiles, resolved from the project root. |
 | `webExt.startUrls` | string[] | `[]` | URLs opened when the browser launches. |
 | `plugins` | plugin[] | `[]` | Addonova plugins in registration order. |
 | `modules` | module[] | `[]` | Addonova modules as objects, package names, or `[package, options]` tuples. Local `modules/*` files are discovered automatically. |
@@ -315,7 +320,14 @@ When the manifest omits `name` or `version`, Addonova reads them from
 `package.json`. Prerelease versions are sanitized for the manifest and preserved
 in `version_name`. Icons matching `icon-<size>.(png|svg)` are discovered from
 `public/` and `public/icons/`; matching `icon-light-*` and `icon-dark-*` files
-become `theme_icons`.
+become `theme_icons`. A bare `icon.svg` or `icon.png` is used as the base icon
+when no sized icons exist.
+
+Addonova rasterizes SVG icons referenced by the manifest into PNGs at
+`[32, 48, 64, 128]` (configurable via `icons.sizes`) during `build` and `dev`, so
+browsers that do not render SVG extension icons still get a full icon set. The
+source SVG is copied to the output unchanged. Set `icons: { convertSvg: false }`
+to keep SVG references as-is.
 
 Dotenv files are loaded in this order, with later files overriding earlier
 ones: `.env`, `.env.local`, `.env.<mode>`, `.env.<mode>.local`, `.env.<browser>`,
@@ -554,7 +566,10 @@ native in-repo launcher. Chrome, Chromium, Edge, and Firefox are supported, and
 
 Installed browsers are detected automatically. Use `webExt.binaries` to point at
 a custom executable; absolute paths, paths relative to the project root, and bare
-command names resolved through `PATH` are supported.
+command names resolved through `PATH` are supported. When a requested target is
+missing, Addonova falls back to another browser of the same family (for example
+`chrome` -> `chromium` -> `brave`) and prints an `ADDONOVA_BROWSER_FALLBACK`
+warning.
 
 ```ts
 export default defineConfig({
@@ -572,9 +587,10 @@ export default defineConfig({
 - By default each launch uses an isolated profile under the OS temp directory
   that is removed on shutdown.
 - Set `chromiumProfile` or `firefoxProfile` to reuse a persistent profile, or set
-  `keepProfileChanges: true` to use
-  `.addonova/browser-profiles/<target>`. Persistent profiles are never deleted
-  automatically.
+  `dataPersistence: 'project'` to use
+  `.addonova/browser-profiles/<target>` (or `'user'` for
+  `~/.addonova/browser-profiles/<target>`). `keepProfileChanges: true` is kept as
+  an alias for `'project'`. Persistent profiles are never deleted automatically.
 - A `--user-data-dir=` entry in `chromiumArgs` or `--profile` in `firefoxArgs` is
   treated as a persistent profile. Explicit profile configuration wins over
   conflicting custom arguments, and a warning is printed.

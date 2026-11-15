@@ -755,6 +755,11 @@ export class DevSession {
         entrypoints: this.config.entrypoints,
         convertManifest: this.config.convertManifest,
         iconDir: target.staging,
+        outdir: target.staging,
+        svgIcons: {
+          enabled: this.config.icons.convertSvg,
+          sizes: this.config.icons.sizes,
+        },
         contentScriptCss: collectContentScriptCss({
           config: this.config,
           browser: target.browser.target,

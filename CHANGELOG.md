@@ -3,6 +3,41 @@
 All notable changes to `addonova` are documented here.
 
 
+## [1.0.8]
+
+### Added
+
+- Manifest SVG icon conversion: `icons` and `action.default_icon` SVG references
+  are rasterized to PNG at build time at configurable sizes through
+  `icons.convertSvg` and `icons.sizes` (default `[32, 48, 64, 128]`). Bundled
+  templates now ship a single `public/icons/logo.svg` source.
+- Additional launcher targets beyond the manifest targets: `brave`, `arc`,
+  `dia`, `chrome-beta`, `chrome-canary`, `chrome-dev`, `edge-beta`,
+  `edge-canary`, `edge-dev`, `firefox-nightly`, `firefox-developer-edition`, and
+  `zen`.
+- Same-family browser binary fallback (for example `chrome` -> `chromium` ->
+  `brave`) with the new `ADDONOVA_BROWSER_FALLBACK` warning, plus
+  `resolveBrowserBinary()` and `browserNotFoundError()` exports.
+- `webExt.dataPersistence` (`none`, `project`, or `user`) and
+  `webExt.projectDataDir` for choosing where persistent profiles are stored.
+- Standalone `installChromium()` and `installFirefox()` helpers for loading an
+  unpacked extension into a running browser, plus `LAUNCHER_TARGETS`,
+  `isLauncherTarget()`, `BROWSER_FAMILY`, and `BROWSER_FALLBACKS` exports.
+- `ADDONOVA_ICON_SVG_CONVERTED`, `ADDONOVA_ICON_SVG_UNSUPPORTED`,
+  `ADDONOVA_ICON_SVG_MISSING`, and `ADDONOVA_ICON_SVG_INVALID` diagnostics.
+- `ADDONOVA_BROWSER_FALLBACK` and `ADDONOVA_WEBEXT_OPTION_CONFLICT`
+  diagnostics.
+
+### Changed
+
+- `webExt.binaries` accepts the additional launcher targets, not only the four
+  manifest targets.
+- `webExt.keepProfileChanges` is now an alias for
+  `dataPersistence: 'project'`. When both are set, `dataPersistence` wins and an
+  `ADDONOVA_WEBEXT_OPTION_CONFLICT` warning is reported.
+- Browser binary detection covers more install locations and falls back to
+  another browser of the same family when the requested target is missing.
+
 ## [1.0.7]
 
 ### Added

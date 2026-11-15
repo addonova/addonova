@@ -124,9 +124,20 @@ export interface AddonovaPackConfig {
 
 export interface AddonovaBrowserApiConfig {
   mode?: BrowserApiMode;
-  package?: string;
-  define?: boolean;
+  packageName?: string;
 }
+
+export interface AddonovaIconsConfig {
+  convertSvg?: boolean;
+  sizes?: readonly number[];
+}
+
+export interface ResolvedIconsConfig {
+  convertSvg: boolean;
+  sizes: readonly number[];
+}
+
+export const DEFAULT_ICON_SIZES: readonly number[] = [32, 48, 64, 128];
 
 export interface ResolvedBrowserApiConfig {
   mode: BrowserApiMode;
@@ -141,6 +152,7 @@ export interface AddonovaUserConfig {
   srcDir?: string;
   entrypointsDir?: string;
   convertManifest?: boolean;
+  icons?: AddonovaIconsConfig;
   outdir?: string;
   publicDir?: string;
   minify?: boolean;
@@ -196,6 +208,7 @@ export interface ResolvedConfig {
   srcDir?: string;
   entrypointsDir?: string;
   convertManifest?: boolean;
+  icons: ResolvedIconsConfig;
   outdir: string;
   publicDir: string;
   mode: BuildMode;
@@ -553,6 +566,7 @@ export function normalizeConfig(
       configPath,
     ),
     webExt: normalizeWebExtConfig(userConfig.webExt, configPath),
+    icons: normalizeIconsConfig(userConfig.icons, configPath),
     plugins: validatePlugins(
       userConfig.plugins,
       configPath === null ? undefined : { file: configPath },
@@ -746,6 +760,60 @@ function normalizeBrowserApi(
   }
 
   return { mode, packageName, define };
+}
+
+function normalizeIconsConfig(
+  rawConfig: AddonovaIconsConfig | undefined,
+  configPath: string | null,
+): ResolvedIconsConfig {
+  if (rawConfig === undefined) {
+    return { convertSvg: true, sizes: DEFAULT_ICON_SIZES };
+  }
+
+  if (!isPlainObject(rawConfig)) {
+    throw configError(
+      'ADDONOVA_CONFIG_ICONS',
+      'Config "icons" must be an object.',
+      'Use icons: { convertSvg: true, sizes: [32, 48, 64, 128] }.',
+      configPath,
+    );
+  }
+
+  let convertSvg = true;
+
+  if (rawConfig.convertSvg !== undefined) {
+    if (typeof rawConfig.convertSvg !== 'boolean') {
+      throw configError(
+        'ADDONOVA_CONFIG_ICONS',
+        'Config "icons.convertSvg" must be true or false.',
+        'Use a boolean value.',
+        configPath,
+      );
+    }
+
+    convertSvg = rawConfig.convertSvg;
+  }
+
+  let sizes: readonly number[] = DEFAULT_ICON_SIZES;
+
+  if (rawConfig.sizes !== undefined) {
+    if (
+      !Array.isArray(rawConfig.sizes) ||
+      rawConfig.sizes.length === 0 ||
+      !rawConfig.sizes.every((size) => Number.isInteger(size) && size > 0)
+    ) {
+      throw configError(
+        'ADDONOVA_CONFIG_ICONS',
+        'Config "icons.sizes" must be a non-empty array of positive integers.',
+        'Use sizes such as [32, 48, 64, 128].',
+        configPath,
+      );
+    }
+
+    sizes = [...new Set(rawConfig.sizes)].sort((left, right) => left - right);
+  }
+
+  return { convertSvg, sizes };
 }
 
 function normalizePack(

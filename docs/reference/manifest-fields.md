@@ -32,8 +32,16 @@ description: Fields Addonova generates, converts, and validates per target.
 ## Icon discovery
 
 - `public/icon-<size>.(png|svg)` and `public/icons/icon-<size>.(png|svg)`.
+- A bare `icon.svg` or `icon.png` is used as the base icon when no sized icons
+  exist.
 - `icon-light-*` and `icon-dark-*` pairs become `theme_icons`.
 - Explicit `icons` in the manifest take precedence.
+- SVG icons referenced by the manifest are rasterized to PNG at
+  `[32, 48, 64, 128]` (see `icons` in the config reference) during `build` and
+  `dev`; the source SVG is kept in the output.
+- Prefer PNG for manifest icons. Some browsers do not render SVG extension
+  icons, so bundled templates either ship pre-rendered `icon-16.png` through
+  `icon-128.png` or a single SVG source that is rasterized at build time.
 
 ## Conversion
 

@@ -10,10 +10,12 @@ export interface ThemeIcon {
 export interface DiscoveredIcons {
   icons: Record<string, string>;
   themeIcons: ThemeIcon[];
+  bareIcon: string | null;
   warnings: string[];
 }
 
 const ICON_PATTERN = /^icon[-_]?(\d+)\.(png|svg)$/i;
+const BARE_ICON_PATTERN = /^icon\.(png|svg)$/i;
 const THEME_PATTERN = /^icon-(light|dark)[-_]?(\d+)\.(png|svg)$/i;
 
 export function discoverIcons(directory: string): DiscoveredIcons {
@@ -22,6 +24,7 @@ export function discoverIcons(directory: string): DiscoveredIcons {
   const warnings: string[] = [];
   const light = new Map<number, string>();
   const dark = new Map<number, string>();
+  let bareIcon: string | null = null;
 
   walk('', 0);
 
@@ -43,7 +46,7 @@ export function discoverIcons(directory: string): DiscoveredIcons {
     );
   }
 
-  return { icons, themeIcons, warnings };
+  return { icons, themeIcons, bareIcon, warnings };
 
   function walk(relativeDirectory: string, depth: number): void {
     if (depth > 1) {
@@ -95,6 +98,18 @@ export function discoverIcons(directory: string): DiscoveredIcons {
           light.set(size, relativePath);
         } else if (variant === 'dark') {
           dark.set(size, relativePath);
+        }
+
+        continue;
+      }
+
+      const bareMatch = BARE_ICON_PATTERN.exec(entry.name);
+
+      if (bareMatch !== null) {
+        const isSvg = bareMatch[1]?.toLowerCase() === 'svg';
+
+        if (bareIcon === null || (isSvg && !bareIcon.toLowerCase().endsWith('.svg'))) {
+          bareIcon = relativePath;
         }
 
         continue;

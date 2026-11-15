@@ -42,6 +42,7 @@ export default defineConfig({
 | `browsers` | target[] or object | `['chrome']` | [Browsers and manifest](browsers-and-manifest.md) |
 | `manifest` | object or function | `{}` | [Browsers and manifest](browsers-and-manifest.md) |
 | `convertManifest` | boolean | `true` | [Browsers and manifest](browsers-and-manifest.md) |
+| `icons` | object | `{ convertSvg: true, sizes: [32, 48, 64, 128] }` | [Browsers and manifest](browsers-and-manifest.md) |
 | `outdir` | string | `dist` | [Build and output](build-and-output.md) |
 | `publicDir` | string | `public` | [Build and output](build-and-output.md) |
 | `mode` | `development` or `production` | `production` | [Build and output](build-and-output.md) |

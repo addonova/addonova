@@ -137,6 +137,10 @@ export async function buildProject(
             entrypoints: config.entrypoints,
             convertManifest: config.convertManifest,
             iconDir: outdir,
+            svgIcons: {
+              enabled: config.icons.convertSvg,
+              sizes: config.icons.sizes,
+            },
             contentScriptCss: collectContentScriptCss({
               config,
               browser: browser.target,

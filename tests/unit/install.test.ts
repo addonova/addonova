@@ -203,14 +203,20 @@ function createBidiServer(
 
       while (frame !== null) {
         buffer = frame.rest;
-        const message = JSON.parse(frame.payload.toString('utf8')) as SentMessage;
-        const response = handler(message.method, message.params);
-        socket.write(
-          encodeServerFrame(
-            0x1,
-            Buffer.from(JSON.stringify({ id: message.id, ...response })),
-          ),
-        );
+
+        if (frame.opcode === 0x1 && frame.payload.length > 0) {
+          const message = JSON.parse(
+            frame.payload.toString('utf8'),
+          ) as SentMessage;
+          const response = handler(message.method, message.params);
+          socket.write(
+            encodeServerFrame(
+              0x1,
+              Buffer.from(JSON.stringify({ id: message.id, ...response })),
+            ),
+          );
+        }
+
         frame = decodeClientFrame(buffer);
       }
     });

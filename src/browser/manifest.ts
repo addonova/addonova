@@ -21,6 +21,7 @@ import { applyManifestDefaults } from '../core/package.ts';
 import { collectCompatibilityDiagnostics } from './compatibility.ts';
 import { convertManifest } from './convert.ts';
 import { discoverIcons } from './icons.ts';
+import { convertSvgIcons } from './svg-icons.ts';
 import { validateManifestLocales } from './locales.ts';
 import type { LocaleCollection } from './locales.ts';
 import { getBrowserTargetInfo } from './targets.ts';
@@ -35,8 +36,14 @@ export interface BuildManifestOptions {
   entrypoints?: readonly ResolvedEntrypoint[];
   convertManifest?: boolean | undefined;
   iconDir?: string;
+  svgIcons?: SvgIconsOption | undefined;
   contentScriptCss?: ReadonlyMap<string, readonly string[]>;
   locales?: LocaleCollection | undefined;
+}
+
+export interface SvgIconsOption {
+  enabled: boolean;
+  sizes: readonly number[];
 }
 
 export interface BuiltManifest {
@@ -60,10 +67,36 @@ export function buildManifest(
     options.entrypoints === undefined
       ? []
       : applyEntrypointManifest(manifest, browser, options);
-  const iconDiagnostics =
+  const iconDiscovery =
     options.iconDir === undefined
-      ? []
+      ? { diagnostics: [] as readonly Diagnostic[], files: [] as readonly string[] }
       : applyDiscoveredIcons(manifest, options.iconDir);
+  const iconDiagnostics = iconDiscovery.diagnostics;
+
+  if (options.availableFiles !== undefined) {
+    const available = options.availableFiles as Set<string>;
+
+    for (const file of iconDiscovery.files) {
+      available.add(file);
+    }
+  }
+  const svgIconResult =
+    options.svgIcons?.enabled === true &&
+    (options.outdir !== undefined || options.iconDir !== undefined)
+      ? convertSvgIcons(manifest, {
+          sizes: options.svgIcons.sizes,
+          outdir: options.outdir ?? options.iconDir ?? '',
+        })
+      : null;
+
+  if (svgIconResult !== null && options.availableFiles !== undefined) {
+    const available = options.availableFiles as Set<string>;
+
+    for (const file of svgIconResult.generated) {
+      available.add(file);
+    }
+  }
+
   const conversionDiagnostics =
     options.convertManifest === true
       ? convertManifest(manifest, browser.manifestVersion, browser.target).map(
@@ -83,6 +116,7 @@ export function buildManifest(
     ...conversionDiagnostics,
     ...entrypointDiagnostics,
     ...iconDiagnostics,
+    ...(svgIconResult?.diagnostics ?? []),
     ...collectCompatibilityDiagnostics(manifest, browser, target),
     ...validateManifestStructure(manifest),
     ...(options.locales?.diagnostics ?? []),
@@ -138,13 +172,13 @@ export function resolveManifestObject(
     resolved = input;
   }
 
-  let manifest = mergeManifest({}, resolved);
+  let manifest = mergeManifest({}, cloneManifest(resolved));
 
   if (options.defaults !== undefined) {
     manifest = applyManifestDefaults(manifest, options.defaults);
   }
 
-  return mergeManifest(manifest, browser.manifestOverrides);
+  return mergeManifest(manifest, cloneManifest(browser.manifestOverrides));
 }
 
 function createManifestContext(
@@ -545,14 +579,24 @@ function applySandboxEntrypoints(
 function applyDiscoveredIcons(
   manifest: Record<string, unknown>,
   iconDir: string,
-): readonly Diagnostic[] {
+): { diagnostics: readonly Diagnostic[]; files: readonly string[] } {
   const discovered = discoverIcons(iconDir);
+  const files = new Set<string>();
 
   if (
     manifest.icons === undefined &&
     Object.keys(discovered.icons).length > 0
   ) {
     manifest.icons = discovered.icons;
+
+    for (const value of Object.values(discovered.icons)) {
+      files.add(value);
+    }
+  }
+
+  if (manifest.icons === undefined && discovered.bareIcon !== null) {
+    manifest.icons = discovered.bareIcon;
+    files.add(discovered.bareIcon);
   }
 
   if (
@@ -560,14 +604,22 @@ function applyDiscoveredIcons(
     discovered.themeIcons.length > 0
   ) {
     manifest.theme_icons = discovered.themeIcons;
+
+    for (const theme of discovered.themeIcons) {
+      files.add(theme.light);
+      files.add(theme.dark);
+    }
   }
 
-  return discovered.warnings.map((message) => ({
-    code: 'ADDONOVA_MANIFEST_ICON_DISCOVERY',
-    severity: 'warning',
-    message,
-    location: { file: iconDir },
-  }));
+  return {
+    diagnostics: discovered.warnings.map((message) => ({
+      code: 'ADDONOVA_MANIFEST_ICON_DISCOVERY',
+      severity: 'warning' as const,
+      message,
+      location: { file: iconDir },
+    })),
+    files: [...files],
+  };
 }
 
 function getContentScriptEntries(
@@ -1135,6 +1187,30 @@ function mergeManifest(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function cloneManifestValue(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(cloneManifestValue);
+  }
+
+  if (isRecord(value)) {
+    const clone: Record<string, unknown> = {};
+
+    for (const [key, entry] of Object.entries(value)) {
+      clone[key] = cloneManifestValue(entry);
+    }
+
+    return clone;
+  }
+
+  return value;
+}
+
+function cloneManifest(
+  manifest: Readonly<Record<string, unknown>>,
+): Record<string, unknown> {
+  return cloneManifestValue(manifest) as Record<string, unknown>;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
