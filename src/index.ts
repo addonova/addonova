@@ -57,11 +57,15 @@ export type {
   CreateBrowserLauncherOptions,
 } from './launcher/launcher.ts';
 export {
+  BROWSER_FALLBACKS,
+  browserNotFoundError,
   findBrowserBinary,
+  resolveBrowserBinary,
   tryFindBrowserBinary,
 } from './launcher/browser-paths.ts';
 export type {
   FindBrowserBinaryOptions,
+  ResolvedBrowserBinary,
 } from './launcher/browser-paths.ts';
 export {
   getBrowserAdapter,
@@ -73,10 +77,27 @@ export type {
 export type {
   BrowserLauncher,
   BrowserProfilePlan,
+  DataPersistence,
+  LauncherTarget,
   ResolvedWebExtConfig,
   RunningBrowser,
   WebExtConfig,
 } from './launcher/types.ts';
+export {
+  BROWSER_FAMILY,
+  DATA_PERSISTENCE_MODES,
+  isLauncherTarget,
+  LAUNCHER_TARGETS,
+} from './launcher/types.ts';
+export {
+  installChromium,
+  installFirefox,
+} from './launcher/install.ts';
+export type {
+  ChromiumInstallResult,
+  FirefoxInstallResult,
+  InstallExtensionOptions,
+} from './launcher/install.ts';
 export {
   ENTRYPOINT_TYPES,
   detectEntrypointKind,
